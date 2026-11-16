@@ -921,3 +921,9 @@ body.dragging .rc-drop { border-color: var(--blue); background: color-mix(in srg
 .hero-cta.walk-hint { background: var(--walk-soft); border-color: transparent; }
 .hero-cta.walk-hint b { color: var(--walk-ink); }
 @media (max-width: 820px) { .home-mode { order: -1; width: 100%; justify-content: center; } }
+
+/* ============================================================ kaart: fietsen / wandelen / alles */
+.side-head { flex-wrap: wrap; }
+.map-mode, .map-mode.home-mode { order: 3; width: 100%; display: flex; }
+.map-mode button { flex: 1; }
+#view-map[data-sport="foot"] .side { --accent: var(--walk); --accent-ink: var(--walk-ink); --accent-faint: var(--walk-soft); --accent-soft: var(--walk-soft); }

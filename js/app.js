@@ -3,6 +3,19 @@
   "use strict";
 
   // ---------------------------------------------------------------- kleuren
+  // Fietsen, wandelen of alles: dezelfde keuze als op het overzicht
+  const FOOT_NAMES = { Walk: "Wandeling", Hike: "Hike", Run: "Hardlopen", TrailRun: "Trailrun" };
+  const FOOT_SET = new Set(Object.keys(FOOT_NAMES));
+  let SPORT = "bike";
+  try { SPORT = localStorage.getItem("fg-home-mode") || "bike"; } catch { /* geen opslag */ }
+  if (!["bike", "foot", "all"].includes(SPORT)) SPORT = "bike";
+  const WORD = {
+    bike: { acts: "ritten", act: "rit", one: "Rit", tab: "Ritten", kicker: "", none: "Geen ritten met deze selectie." },
+    foot: { acts: "wandelingen", act: "wandeling", one: "Wandeling", tab: "Wandelingen", kicker: " · wandelen", none: "Geen wandelingen met deze selectie." },
+    all: { acts: "activiteiten", act: "activiteit", one: "Activiteit", tab: "Activiteiten", kicker: " · fietsen en wandelen", none: "Geen activiteiten met deze selectie." },
+  };
+  const W = () => WORD[SPORT];
+
   // Kleuren komen uit de stylesheet (licht of donker), zie themeColors()
   const C = {
     visited: "#eb6834",
@@ -14,11 +27,13 @@
   };
   function themeColors() {
     const css = (n, d) => (window.FGTheme && window.FGTheme.css(n)) || d;
-    C.visited = css("--accent", C.visited);
+    C.accent = css("--accent", C.accent || C.visited);
+    C.walk = css("--walk", "#2f9a68");
+    C.visited = SPORT === "foot" ? C.walk : C.accent;
     C.unvisited = css("--unvisited", C.unvisited);
     C.border = css("--map-line", C.border);
     C.ink = css("--ink", C.ink);
-    C.soft = css("--accent-faint", C.soft);
+    C.soft = SPORT === "foot" ? css("--walk-soft", C.soft) : css("--accent-faint", C.soft);
     C.blue = css("--blue", C.blue);
   }
   themeColors();
@@ -95,12 +110,19 @@
   const inRange = (a, start, end) => (!start || a.date >= start) && (!end || a.date <= end);
   const isOpen = (i) => { const { end } = roundRange(i); return !end || end >= today(); };
 
-  // Gemeenten per ronde (alle meetellende ritsoorten, zonder jaar-/maandfilter), op volgorde van eerste bezoek
-  function roundFirsts(i) {
+  // Soorten die op de kaart meetellen: fietsen (instelling), te voet, of allebei
+  function mtypes() {
+    if (SPORT === "foot") return FOOT_SET;
+    if (SPORT === "all") return new Set([...S.types, ...FOOT_SET]);
+    return S.types;
+  }
+
+  // Gemeenten per ronde (alle meetellende soorten, zonder jaar-/maandfilter), op volgorde van eerste bezoek
+  function roundFirsts(i, types = mtypes()) {
     const { start, end } = roundRange(i);
     const first = new Map();
     for (const a of S.acts) {
-      if (!S.types.has(a.type) || !inRange(a, start, end)) continue;
+      if (!types.has(a.type) || !inRange(a, start, end)) continue;
       for (const c of a.g) if (S.features[c] && !first.has(c)) first.set(c, a);
     }
     return first;
@@ -161,7 +183,7 @@
 
   // ------------------------------------------------------------ berekenen
   function compute() {
-    const types = S.typeSel.size ? S.typeSel : S.types;
+    const types = S.typeSel.size ? S.typeSel : mtypes();
     const { start, end } = roundRange(S.round);
     const inType = S.acts.filter((a) => types.has(a.type) && inRange(a, start, end));
     S.roundActs = inType;
@@ -172,8 +194,9 @@
       for (const c of a.g) {
         if (!S.features[c]) continue;
         let s = S.stats.get(c);
-        if (!s) { s = { n: 0, first: a, last: a }; S.stats.set(c, s); }
+        if (!s) { s = { n: 0, first: a, last: a, b: 0 }; S.stats.set(c, s); }
         s.n++;
+        if (!FOOT_SET.has(a.type)) s.b++;
         if (a.date < s.first.date) s.first = a;
         if (a.date >= s.last.date) s.last = a;
       }
@@ -238,7 +261,7 @@
   function baseStyle(code) {
     const s = S.stats.get(code);
     let fill = C.unvisited;
-    if (S.fill === "visited" && s) fill = C.visited;
+    if (S.fill === "visited" && s) fill = SPORT === "all" && !s.b ? C.walk : C.visited;
     else if (S.fill === "freq" && s) fill = freqColor(s.n);
     else if (S.fill === "first") {
       const a = S.firstEver.get(code);
@@ -287,7 +310,7 @@
     $("h-visited").textContent = nf.format(visited);
     $("h-total").textContent = nf.format(total);
     $("h-bar").style.width = `${(visited / total) * 100}%`;
-    $("map-kicker").textContent = `${nf.format(visited)} van ${nf.format(total)} · ${roundLabel(S.round || 0).name}`;
+    $("map-kicker").textContent = `${nf.format(visited)} van ${nf.format(total)} · ${roundLabel(S.round || 0).name}${W().kicker}`;
     const km = S.filtered.reduce((t, a) => t + a.km, 0);
     const pct = total ? Math.round((visited / total) * 1000) / 10 : 0;
     const parts = [`<b>${nf.format(pct)}%</b>`];
@@ -298,15 +321,16 @@
       const n = [...S.firstEver.values()].filter((a) => S.years.has(a.date.slice(0, 4))).length;
       parts.push(`in ${yearsLabel()}`, `<b>${nf.format(n)}</b> nieuw`);
     }
-    parts.push(`${nf.format(S.filtered.length)} ritten`, `${nf.format(Math.round(km))} km`);
+    parts.push(`${nf.format(S.filtered.length)} ${W().acts}`, `${nf.format(Math.round(km))} km`);
     $("h-sub").innerHTML = parts.join(" · ");
   }
 
   function roundLabel(i) {
     const { start, end } = roundRange(i);
     const name = `Ronde ${i + 1}`;
-    const firstRide = S.acts.length ? S.acts[0].date : "";
-    const from = start ? fmtDate(start) : firstRide ? `je eerste rit (${fmtDate(firstRide)})` : "het begin";
+    const firstAct = S.acts.find((a) => mtypes().has(a.type));
+    const firstRide = firstAct ? firstAct.date : "";
+    const from = start ? fmtDate(start) : firstRide ? `je eerste ${W().act} (${fmtDate(firstRide)})` : "het begin";
     if (end) return { name, since: `${start ? fmtDate(start) : "begin"} t/m ${fmtDate(end)}`, short: `${start ? fmtDate(start) : "begin"} – ${fmtDate(end)}` };
     return { name, since: start ? `sinds ${from}` : `vanaf ${from}`, short: start ? `sinds ${fmtDate(start)}` : "vanaf begin" };
   }
@@ -338,7 +362,7 @@
     if (!window.FGParty || !Object.keys(S.features).length) return;
     const total = Object.keys(S.features).length;
     for (let i = 0; i < S.rounds.length; i++) {
-      const first = roundFirsts(i);
+      const first = roundFirsts(i, S.types);
       const ms = gemMilestones(i, first);
       const { start, end } = roundRange(i);
       const group = `gem-${start || "begin"}${end ? `-${end}` : ""}`;
@@ -440,11 +464,14 @@
       return;
     }
     if (S.fill === "visited") {
-      title = `Bezocht${inSuffix()}`;
-      items.push(`<div class="li"><span class="sw" style="background:${C.visited}"></span>Bezocht</div>`);
+      title = `${SPORT === "foot" ? "Gewandeld" : "Bezocht"}${inSuffix()}`;
+      if (SPORT === "all") {
+        items.push(`<div class="li"><span class="sw" style="background:${C.visited}"></span>Gefietst</div>`);
+        items.push(`<div class="li"><span class="sw" style="background:${C.walk}"></span>Alleen gewandeld</div>`);
+      } else items.push(`<div class="li"><span class="sw" style="background:${C.visited}"></span>${SPORT === "foot" ? "Gewandeld" : "Bezocht"}</div>`);
       items.push(`<div class="li"><span class="sw" style="background:${C.unvisited}"></span>Nog niet</div>`);
     } else if (S.fill === "freq") {
-      title = `Aantal ritten${inSuffix()}`;
+      title = `Aantal ${W().acts}${inSuffix()}`;
       for (const b of FREQ_BINS) items.push(`<div class="li"><span class="sw" style="background:${b.color}"></span>${b.label}</div>`);
       items.push(`<div class="li"><span class="sw" style="background:${C.unvisited}"></span>Nog niet</div>`);
     } else if (S.fill === "first") {
@@ -511,7 +538,8 @@
 
   // ------------------------------------------------------------- ritten
   const TYPE_SHORT = { Ride: "Weg", GravelRide: "Gravel", MountainBikeRide: "MTB", EBikeRide: "E-bike",
-    EMountainBikeRide: "E-MTB", Velomobile: "Velomobiel", Handcycle: "Handbike" };
+    EMountainBikeRide: "E-MTB", Velomobile: "Velomobiel", Handcycle: "Handbike",
+    Walk: "Wandelen", Hike: "Hike", Run: "Hardlopen", TrailRun: "Trail" };
 
   function rideRows() {
     const q = $("ride-search").value.trim().toLowerCase();
@@ -536,7 +564,7 @@
   function renderRides() {
     const { list, fresh, nG } = rideRows();
     const km = list.reduce((t, a) => t + a.km, 0);
-    $("rides-sum").textContent = `${nf.format(list.length)} ritten · ${nf.format(Math.round(km))} km`;
+    $("rides-sum").textContent = `${nf.format(list.length)} ${W().acts} · ${nf.format(Math.round(km))} km`;
     const gf = S.gemFilter && S.features[S.gemFilter];
     $("rides-gem").hidden = !gf;
     if (gf) $("rides-gem-text").textContent = `Door ${gf.naam}`;
@@ -544,13 +572,13 @@
     $("rides-list").innerHTML = shown.map((a) => {
       const n = nG(a), f = fresh.get(a.id) || 0;
       return `<div class="ride${S.rideSel === a.id ? " sel" : ""}" data-ride="${a.id}">
-        <span class="rn" title="${esc(a.name)}">${esc(a.name || "Rit")}</span>
+        <span class="rn" title="${esc(a.name)}">${esc(a.name || (FOOT_SET.has(a.type) ? "Wandeling" : "Rit"))}</span>
         <span class="rk">${nf.format(a.km)} km</span>
-        <span class="rm"><span class="tbadge">${esc(TYPE_SHORT[a.type] || a.type)}</span>${fmtDate(a.date)}${a.bike ? " · " + esc(a.bike) : ""}</span>
+        <span class="rm"><span class="tbadge${FOOT_SET.has(a.type) ? " walk" : ""}">${esc(TYPE_SHORT[a.type] || a.type)}</span>${fmtDate(a.date)}${a.bike ? " · " + esc(a.bike) : ""}</span>
         <span class="rg">${n ? `${n} gem.` : "buiten NL"}${f ? ` · <b>${f} nieuw</b>` : ""}</span>
       </div>`;
     }).join("") + (list.length > shown.length ? `<button class="btn small more" id="rides-more">Toon meer (${nf.format(list.length - shown.length)})</button>` : "")
-      || `<div class="empty">Geen ritten met deze selectie.</div>`;
+      || `<div class="empty">${W().none}</div>`;
   }
 
   map.createPane("selected");
@@ -636,7 +664,7 @@
     else pill = `<span class="pill blue">Nog te gaan in ${esc(rl)}</span>`;
     const stat = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
     // Altijd: alle ritten van de meetellende soorten, over alle rondes heen
-    const all = S.acts.filter((a) => S.types.has(a.type) && a.g.includes(code));
+    const all = S.acts.filter((a) => mtypes().has(a.type) && a.g.includes(code));
     const stats = [
       stat(`In ${esc(rl)}${inSuffix()}`, s ? `${nf.format(s.n)}×` : "0×"),
       stat(`Eerst in ${esc(rl)}`, rf ? fmtDate(rf.date) : "nog niet"),
@@ -645,12 +673,12 @@
     ];
     if (all.length) stats.push(stat("Laatste keer", fmtDate(all[all.length - 1].date)));
     const top = rides.slice(0, 4).map((a) => `<li><button type="button" class="gc-ride" data-ride="${a.id}"><span class="gc-rn">${esc(a.name || "Rit")}</span><span class="gc-rm">${fmtDate(a.date)} · ${nf.format(a.km)} km</span></button></li>`).join("");
-    const more = rides.length > 4 ? `<button type="button" class="link" data-gem-rides="${esc(code)}">Alle ${nf.format(rides.length)} ritten door ${esc(f.naam)}</button>` : "";
+    const more = rides.length > 4 ? `<button type="button" class="link" data-gem-rides="${esc(code)}">Alle ${nf.format(rides.length)} ${W().acts} door ${esc(f.naam)}</button>` : "";
     return `<div class="gc-head"><div><p class="eyebrow">${esc(f.provincie)}</p><h2 id="gem-card-title">${esc(f.naam)}</h2></div>
         <button type="button" class="gc-x" id="gem-card-x" aria-label="Sluiten">×</button></div>
       <div class="pills">${pill}</div>
       <dl class="gc-stats">${stats.join("")}</dl>
-      ${rides.length ? `<div class="gc-rides"><p class="eyebrow">Ritten in ${esc(rl)}${inSuffix()}</p><ul>${top}</ul>${more}</div>` : ""}
+      ${rides.length ? `<div class="gc-rides"><p class="eyebrow">${W().tab} in ${esc(rl)}${inSuffix()}</p><ul>${top}</ul>${more}</div>` : ""}
       <div class="actions">
         ${rf ? "" : `<button type="button" class="btn primary" data-action="routecheck">Route controleren</button>`}
         <button type="button" class="btn" id="gem-card-zoom">Inzoomen</button>
@@ -693,7 +721,7 @@
       if (S.hatch.has(code)) row("Vorige ronde", "wel geweest");
     }
     // Totaal over alle rondes, als dat iets toevoegt
-    const all = S.acts.filter((x) => S.types.has(x.type) && x.g.includes(code));
+    const all = S.acts.filter((x) => mtypes().has(x.type) && x.g.includes(code));
     if (all.length && (!s || all.length !== s.n)) row("Alle rondes", `${nf.format(all.length)}×, laatst ${fmtDate(all[all.length - 1].date)}`);
     return `<div class="tip-h"><b>${esc(f.naam)}</b><span>${esc(f.provincie)}</span></div><div class="tip-g">${lines.join("")}</div>`;
   }
@@ -838,11 +866,12 @@
   function fillYears() {
     const wrap = $("f-years");
     const { start, end } = roundRange(S.round);
-    const years = [...new Set(S.acts.filter((a) => inRange(a, start, end))
+    const mt = mtypes();
+    const years = [...new Set(S.acts.filter((a) => mt.has(a.type) && inRange(a, start, end))
       .map((a) => a.date.slice(0, 4)))].sort().reverse();
     for (const y of [...S.years]) if (!years.includes(y)) S.years.delete(y);
     wrap.innerHTML = years.map((y) => `<button type="button" class="chip small" data-year="${y}" aria-pressed="${S.years.has(y)}">${y}</button>`).join("")
-      || `<span class="hint">Nog geen ritten in deze ronde.</span>`;
+      || `<span class="hint">Nog geen ${W().acts} in deze ronde.</span>`;
     renderPeriodSum();
   }
 
@@ -969,9 +998,10 @@
       if (S.range ? !inPeriod(a) : S.years.size && !S.years.has(a.date.slice(0, 4))) continue;
       count[a.type] = (count[a.type] || 0) + 1;
     }
-    const names = S.typeNames || {};
+    const names = { ...(S.typeNames || {}), ...FOOT_NAMES };
+    const mt = [...mtypes()].filter((t) => !FOOT_SET.has(t) || count[t]);
     $("f-types").innerHTML = `<button class="chip small" data-type="" aria-pressed="${S.typeSel.size === 0}">Alle</button>` +
-      [...S.types].map((t) => `<button class="chip small" data-type="${esc(t)}" aria-pressed="${S.typeSel.has(t)}">${esc(names[t] || t)} <span class="cn">${nf.format(count[t] || 0)}</span></button>`).join("");
+      mt.map((t) => `<button class="chip small" data-type="${esc(t)}" aria-pressed="${S.typeSel.has(t)}">${esc(names[t] || t)} <span class="cn">${nf.format(count[t] || 0)}</span></button>`).join("");
   }
 
   // ------------------------------------------------------------- status
@@ -1199,7 +1229,8 @@
       if (!f.hidden) {
         $("round-new-date").value = today();
         $("round-new-end").value = "";
-        $("round-new-date").min = S.acts[0] ? S.acts[0].date : "";
+        const fa = S.acts.find((a) => mtypes().has(a.type));
+        $("round-new-date").min = fa ? fa.date : "";
         $("round-new-date").max = today();
         $("round-new-date").focus();
       }
@@ -1234,7 +1265,7 @@
     if (!t) S.typeSel.clear();
     else if (S.typeSel.has(t)) S.typeSel.delete(t);
     else S.typeSel.add(t);
-    if (S.typeSel.size === S.types.size) S.typeSel.clear();
+    if (S.typeSel.size === mtypes().size) S.typeSel.clear();
     S.rideLimit = 60;
     render();
   });
@@ -1382,6 +1413,34 @@
 
   $("sel-detail").addEventListener("click", (e) => window.FGRide && window.FGRide.open(Number(e.currentTarget.dataset.id)));
 
+  // Fietsen / Wandelen / Alles (gedeeld met het overzicht)
+  function setSport(m) {
+    if (!WORD[m]) return;
+    const changed = m !== SPORT;
+    SPORT = m;
+    try { localStorage.setItem("fg-home-mode", m); } catch { /* geen opslag */ }
+    syncSportUi();
+    if (!changed) return;
+    themeColors();
+    S.typeSel.clear();
+    S.gemFilter = null;
+    if (S.rideSel && !mtypes().has((S.acts.find((a) => a.id === S.rideSel) || {}).type)) clearRide();
+    fillYears();
+    render();
+  }
+  function syncSportUi() {
+    document.querySelectorAll("#map-mode [data-hm]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.hm === SPORT)));
+    $("view-map").dataset.sport = SPORT;
+    const tab = document.querySelector('.tab[data-tab="rides"]');
+    if (tab) tab.textContent = W().tab;
+    $("ride-search").placeholder = SPORT === "foot" ? "Zoek op naam…" : "Zoek op naam of fiets…";
+  }
+  syncSportUi();
+  $("map-mode").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-hm]");
+    if (b) setSport(b.dataset.hm);
+  });
+
   window.FG = {
     setView,
     /** Alles wat het detailscherm van een rit nodig heeft */
@@ -1392,7 +1451,8 @@
       const firsts = roundFirsts(i);
       // volgorde van de ritten in deze ronde, om "voor" en "na" deze rit te tellen
       const order = new Map();
-      S.acts.filter((a) => S.types.has(a.type) && inRange(a, start, end)).forEach((a, k) => order.set(a.id, k));
+      const mt = mtypes();
+      S.acts.filter((a) => mt.has(a.type) && inRange(a, start, end)).forEach((a, k) => order.set(a.id, k));
       const pos = order.has(id) ? order.get(id) : -1;
       let before = 0, mine = 0;
       for (const [, a] of firsts) {
@@ -1402,13 +1462,15 @@
       }
       return {
         act, features: S.features, gj: S.gj, osm: S.osm, colors: { ...C },
-        round: roundLabel(i), inRound: pos >= 0, counts: S.types.has(act ? act.type : ""),
+        round: roundLabel(i), inRound: pos >= 0, counts: mt.has(act ? act.type : ""),
         firsts, before, after: before + mine, total: Object.keys(S.features).length,
         // was je hier vóór deze rit al eens geweest (alle rondes)?
-        everBefore: (code) => !!act && S.acts.some((a) => S.types.has(a.type) && a.id !== id && a.date < act.date && a.g.includes(code)),
+        everBefore: (code) => !!act && S.acts.some((a) => mt.has(a.type) && a.id !== id && a.date < act.date && a.g.includes(code)),
       };
     },
     openRide(id) { if (window.FGRide) window.FGRide.open(id); },
+    sport: () => SPORT,
+    setSport,
     view: () => curView,
     /** Gegevens voor het overzicht en de zoekbalk */
     data() {
@@ -1418,14 +1480,14 @@
         round: S.round || 0, rounds: S.rounds.map((_, i) => roundLabel(i)),
         roundOpen: isOpen(S.round || 0), roundRange: roundRange(S.round || 0),
         ranges: S.rounds.map((_, i) => roundRange(i)),
-        firsts: total ? roundFirsts(S.round || 0) : new Map(),
-        prevFirsts: total && S.round > 0 ? roundFirsts(S.round - 1) : null,
+        firsts: total ? roundFirsts(S.round || 0, S.types) : new Map(),
+        prevFirsts: total && S.round > 0 ? roundFirsts(S.round - 1, S.types) : null,
         status: S.status,
       };
     },
     medalsHtml() {
       const i = S.round || 0;
-      return window.FGParty && Object.keys(S.features).length ? window.FGParty.medals(gemMilestones(i, roundFirsts(i)), fmtDate) : "";
+      return window.FGParty && Object.keys(S.features).length ? window.FGParty.medals(gemMilestones(i, roundFirsts(i, S.types)), fmtDate) : "";
     },
     setRound(i) {
       S.round = Math.max(0, Math.min(S.rounds.length - 1, Number(i) || 0));
@@ -1436,6 +1498,8 @@
     },
     focusGemeente(code) { onMap(() => focusGemeente(code)); },
     showRide(id) {
+      const a = S.acts.find((x) => x.id === id);
+      if (a && !mtypes().has(a.type)) setSport(FOOT_SET.has(a.type) ? "foot" : "bike");
       onMap(() => {
         if (S.rideSel !== id) selectRide(id); else selectRide(id).then(() => selectRide(id));
         const el = document.querySelector(`#rides-list [data-ride="${id}"]`);
@@ -1455,7 +1519,7 @@
     },
     /** Alle rondes met hun stand, voor het beheervenster */
     roundsInfo() {
-      return S.rounds.map((r, i) => ({ start: r.start, end: r.end, ...roundLabel(i), n: roundFirsts(i).size, cur: i === (S.round || 0) }));
+      return S.rounds.map((r, i) => ({ start: r.start, end: r.end, ...roundLabel(i), n: roundFirsts(i, S.types).size, cur: i === (S.round || 0) }));
     },
     /** Begin- of einddatum van ronde i aanpassen; geeft een foutmelding terug of null */
     async updateRound(i, field, value) {
@@ -1486,7 +1550,8 @@
         if (!S.types.has(a.type) || a.date < start || (end && a.date > end)) continue;
         for (const c of a.g) if (S.features[c]) seen.add(c);
       }
-      return { n: seen.size, total: Object.keys(S.features).length, first: S.acts.length ? S.acts[0].date : "" };
+      const fb = S.acts.find((a) => S.types.has(a.type));
+      return { n: seen.size, total: Object.keys(S.features).length, first: fb ? fb.date : "" };
     },
     openTodo() {
       setView("map");
@@ -1535,13 +1600,13 @@
     gemeentenInPeriod(start, end) {
       const set = new Set();
       for (const a of S.acts) if (S.types.has(a.type) && a.date >= start && a.date <= end) a.g.forEach((c) => S.features[c] && set.add(c));
-      const fresh = [...roundFirsts(0).entries()].filter(([, a]) => a.date >= start && a.date <= end)
+      const fresh = [...roundFirsts(0, S.types).entries()].filter(([, a]) => a.date >= start && a.date <= end)
         .map(([c, a]) => ({ code: c, naam: S.features[c].naam, date: a.date }))
         .sort((x, y) => x.date.localeCompare(y.date));
       return { count: set.size, fresh };
     },
     newGemeentenInYear(y) {
-      return [...roundFirsts(0).values()].filter((a) => a.date.startsWith(String(y))).length;
+      return [...roundFirsts(0, S.types).values()].filter((a) => a.date.startsWith(String(y))).length;
     },
     gemeentenInYear(y) {
       const set = new Set();

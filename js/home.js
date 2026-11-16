@@ -397,6 +397,7 @@
   async function render() {
     if (!window.FG) return;
     const seq = ++H.seq;
+    if (window.FG.sport) H.mode = window.FG.sport();
     const D = window.FG.data();
     renderHead(D);
     const st = D.status;
@@ -431,7 +432,8 @@
       const b = e.target.closest("[data-hm]");
       if (!b) return;
       H.mode = b.dataset.hm;
-      try { localStorage.setItem("fg-home-mode", H.mode); } catch { /* geen opslag */ }
+      if (window.FG && window.FG.setSport) window.FG.setSport(H.mode);
+      else try { localStorage.setItem("fg-home-mode", H.mode); } catch { /* geen opslag */ }
       render();
     });
     $("view-home").addEventListener("click", (e) => {

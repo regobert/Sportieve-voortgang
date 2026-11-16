@@ -415,7 +415,7 @@
     return saveCfg().then(() => json({ ok: true, [key]: goals }));
   };
   R["GET /api/data"] = () => {
-    const types = new Set(sportTypes());
+    const types = new Set([...sportTypes(), ...Object.keys(FOOT)]);
     const acts = sorted().filter((a) => !a.trainer && types.has(a.sport_type)).map((a) => ({
       id: a.id, name: a.name, type: a.sport_type, date: (a.start_local || "").slice(0, 10),
       km: Math.round((a.distance || 0) / 100) / 10, bike: a.gear || "", ng: a.no_gps ? 1 : 0, g: a.g || [],
@@ -430,7 +430,7 @@
     return json({ activities: acts });
   };
   R["GET /api/routes"] = () => {
-    const types = new Set(sportTypes());
+    const types = new Set([...sportTypes(), ...Object.keys(FOOT)]);
     const out = {};
     for (const a of E.acts.values()) if (!a.trainer && types.has(a.sport_type) && a.polyline && a.g && a.g.length) out[a.id] = a.polyline;
     return json(out);
