@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fietsgemeenten</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='9' cy='21' r='6' fill='none' stroke='%23eb6834' stroke-width='3'/%3E%3Ccircle cx='23' cy='21' r='6' fill='none' stroke='%23eb6834' stroke-width='3'/%3E%3Cpath d='M9 21l5-10h7l2 10M14 11l-2-3' fill='none' stroke='%230b0b0b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/theme.js"></script>
+</head>
+<body>
+<div class="shell">
+<nav class="rail" aria-label="Hoofdmenu">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 34 34" width="34" height="34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="#eb6834"/><circle cx="11" cy="21" r="5" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="23" cy="21" r="5" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M11 21l4-8h5l3 8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg>
+    <span class="brand-name">Fietsgemeenten</span>
+  </div>
+  <button type="button" class="rail-search" data-action="search"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Zoeken</span><kbd>Ctrl K</kbd></button>
+  <div class="rail-items">
+    <button type="button" class="nav-btn" data-view="home"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Overzicht</span></button>
+    <button type="button" class="nav-btn" data-view="map"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg><span>Kaart</span></button>
+    <button type="button" class="nav-btn" data-view="rides"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg><span>Activiteiten</span></button>
+    <button type="button" class="nav-btn" data-view="km"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Kilometers</span></button>
+    <button type="button" class="nav-btn" data-action="routecheck" data-nav="check"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c3 0 3-6 7-6s4 6 7 6M5 19a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm14 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM12 13V5m0 0 3 3m-3-3-3 3"/></svg><span>Routecheck</span></button>
+  </div>
+  <div class="rail-foot">
+    <button type="button" class="nav-btn" id="btn-theme" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span>Donkere modus</span></button>
+    <button type="button" class="nav-btn" id="btn-settings"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Instellingen</span></button>
+    <div class="athlete" id="athlete"></div>
+  </div>
+</nav>
+<div class="views">
+
+<!-- Overzicht -->
+<main class="view home" id="view-home" hidden aria-labelledby="home-title">
+  <header class="page-head">
+    <div><p class="page-kicker" id="home-date"></p><h1 id="home-title">Overzicht</h1></div>
+    <div class="page-tools">
+      <button type="button" class="searchbox" data-action="search"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Zoek gemeente, rit of datum</span><kbd>Ctrl K</kbd></button>
+      <label class="round-pick"><span class="sr-only">Ronde</span><select id="home-round"></select></label>
+      <button type="button" class="btn round-edit" id="home-round-edit" aria-label="Rondes beheren" title="Rondes beheren"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
+      <button type="button" class="btn round-add" id="home-round-new"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nieuwe ronde</button>
+    </div>
+  </header>
+  <section class="card home-empty" id="home-empty" hidden>
+    <h2>Welkom bij Fietsgemeenten</h2>
+    <p>Er staan nog geen ritten in deze browser. Lees je Strava-archief in of zet een back-up terug; daarna vult dit overzicht zich vanzelf.</p>
+    <p class="hint">Je archief wordt niet geüpload: het wordt hier in je browser gelezen en je gegevens blijven op dit apparaat.</p>
+    <div class="actions">
+      <button type="button" class="btn primary" data-action="pick-archive">Strava-archief kiezen…</button>
+      <button type="button" class="btn" data-action="pick-backup">Back-up terugzetten…</button>
+      <button type="button" class="btn" data-view="map">Uitleg</button>
+    </div>
+  </section>
+  <div class="home-grid" id="home-grid">
+    <section class="card hcard span2" id="home-hero" aria-label="Voortgang gemeenten"></section>
+    <section class="card hcard" id="home-goal" aria-label="Jaardoel"></section>
+    <section class="card hcard span2" id="home-months" aria-label="Kilometers per maand"></section>
+    <section class="card hcard" id="home-next" aria-label="Volgende uitdaging"></section>
+    <section class="card hcard span2" id="home-recent" aria-label="Laatste activiteiten"></section>
+    <section class="card hcard" id="home-prov" aria-label="Per provincie"></section>
+  </div>
+</main>
+
+<div class="app view" id="view-map">
+  <aside class="side">
+    <header class="side-head">
+      <div><p class="page-kicker" id="map-kicker"></p><h1>Kaart</h1></div>
+      <button type="button" class="searchbox compact" data-action="search"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Zoek gemeente</span></button>
+    </header>
+
+    <!-- Geselecteerde gemeente -->
+    <section class="card gem-card" id="gem-card" hidden aria-labelledby="gem-card-title" aria-live="polite"></section>
+
+    <div class="banner" id="banner" hidden></div>
+
+    <!-- Eerste keer: kies hoe je ritten binnenkomen -->
+    <section class="card onboarding" id="onboarding" hidden>
+      <h2>Haal je ritten binnen</h2>
+      <p class="intro">Lees je Strava-archief in. Het bestand wordt <b>niet geüpload</b>: alles gebeurt in deze browser en je gegevens blijven op dit apparaat.</p>
+      <div class="mpane" id="m-archive">
+        <ol class="steps">
+          <li>Ga op Strava naar <a href="https://www.strava.com/athlete/delete_your_account" target="_blank" rel="noopener">Mijn account › Account downloaden</a> en klik <b>Archief aanvragen</b>.</li>
+          <li>Je krijgt een e-mail met een downloadlink (meestal binnen een paar uur). Download het zip-bestand.</li>
+          <li>Kies dat zip-bestand hieronder. Niet eerst uitpakken.</li>
+        </ol>
+        <button class="btn primary wide" type="button" data-action="pick-archive">Archief kiezen…</button>
+        <p class="small onb-alt">Heb je al een back-up van Fietsgemeenten (bijvoorbeeld van een ander apparaat)? <button type="button" class="link" data-action="pick-backup">Back-up terugzetten</button></p>
+      </div>
+    </section>
+
+    <!-- Rondes -->
+    <section class="rounds" aria-label="Rondes">
+      <div class="round-chips" id="round-chips" role="group" aria-label="Ronde kiezen"></div>
+      <form class="round-new" id="round-new" hidden>
+        <div class="round-new-dates">
+          <label>Van<input type="date" id="round-new-date" required></label>
+          <label>Tot en met <small>(leeg = loopt door)</small><input type="date" id="round-new-end"></label>
+        </div>
+        <div class="round-new-row">
+          <button class="btn small primary" type="submit">Start ronde</button>
+          <button class="btn small" type="button" id="round-new-cancel">Annuleren</button>
+        </div>
+        <p class="hint">Alle ritten tussen die datums tellen mee, ook als ze al gereden zijn. Je andere rondes blijven gewoon bestaan.</p>
+      </form>
+    </section>
+
+    <!-- Teller -->
+    <section class="hero" id="hero">
+      <div class="hero-round" id="h-round"></div>
+      <div class="hero-num"><span id="h-visited">0</span><span class="hero-of">van <span id="h-total">342</span> gemeenten</span></div>
+      <div class="meter" aria-hidden="true"><div class="meter-fill" id="h-bar"></div><i style="left:50%"></i><i style="left:75%"></i><i style="left:90%"></i></div>
+      <div class="hero-sub" id="h-sub"></div>
+      <div id="h-medals"></div>
+      <details class="todo-drop" id="todo-drop">
+        <summary><span id="todo-sum">Nog te gaan</span><svg class="chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+        <div class="todo-body">
+          <input class="search" id="todo-search" type="search" placeholder="Zoek een gemeente…">
+          <div id="todo-list"></div>
+        </div>
+      </details>
+      <button type="button" class="btn wide route-btn" id="btn-route-check" title="Upload een GPX van een geplande route">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 19c3 0 3-6 7-6s4 6 7 6M5 19a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm14 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM12 13V5m0 0 3 3m-3-3-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Route controleren (GPX)
+      </button>
+      <input type="file" id="route-file" accept=".gpx,.tcx,.fit,.gz" hidden>
+    </section>
+
+    <!-- Routecheck -->
+    <section class="card route-card" id="route-card" hidden aria-live="polite"></section>
+
+    <!-- Synchronisatie -->
+    <section class="sync" id="sync" hidden>
+      <div class="sync-row">
+        <div class="sync-text">
+          <div class="sync-msg" id="sync-msg">-</div>
+          <div class="sync-detail" id="sync-detail"></div>
+        </div>
+        <button type="button" class="btn small" id="btn-sync">Bijwerken</button>
+      </div>
+      <div class="progress" id="sync-progress" hidden><div id="sync-bar"></div></div>
+    </section>
+
+    <!-- Archief: voortgang en opnieuw inlezen -->
+    <section class="sync" id="imp" hidden>
+      <div class="sync-row">
+        <div class="sync-text">
+          <div class="sync-msg" id="imp-msg">Strava-archief</div>
+          <div class="sync-detail" id="imp-detail"></div>
+        </div>
+        <button type="button" class="btn small" id="btn-imp" data-action="pick-archive">Archief inlezen</button>
+      </div>
+      <div class="progress" id="imp-progress" hidden><div id="imp-bar"></div></div>
+    </section>
+    <input type="file" id="archive-file" accept=".zip,application/zip" hidden>
+    <input type="file" id="backup-file" accept=".gz,.json,application/gzip,application/json" hidden>
+
+    <!-- Filters -->
+    <section class="block">
+      <h3>Filter</h3>
+      <div class="filters">
+        <div class="years-row">
+          <span class="lbl">Periode</span>
+          <div class="pp-wrap">
+            <button type="button" class="pp-sum" id="period-pick" aria-expanded="false" aria-controls="pp-pop"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span id="period-sum">Alles</span><svg class="chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button type="button" class="pp-x" id="month-chip-x" aria-label="Periode wissen" hidden>×</button>
+          </div>
+        </div>
+  <div class="pp-pop" id="pp-pop" hidden>
+          <div class="pp-quick" role="group" aria-label="Snelkeuze">
+            <button type="button" class="chip small" data-pp="all">Alles</button>
+            <button type="button" class="chip small" data-pp="thisyear">Dit jaar</button>
+            <button type="button" class="chip small" data-pp="lastyear">Vorig jaar</button>
+            <button type="button" class="chip small" data-pp="12m">Laatste 12 maanden</button>
+            <button type="button" class="chip small" data-pp="thismonth">Deze maand</button>
+          </div>
+          <p class="pp-h">Jaren <small>(klik er een of meer aan)</small></p>
+          <div class="pp-years" id="f-years" role="group" aria-label="Jaren"></div>
+          <p class="pp-h">Van – tot en met</p>
+          <form class="pp-range" id="pp-range">
+            <label>Van<input type="date" id="pp-from" required></label>
+            <label>Tot en met<input type="date" id="pp-to" required></label>
+            <button class="btn small primary" type="submit">Toon</button>
+          </form>
+        </div>
+        <div class="years-row">
+          <span class="lbl">Soort</span>
+          <div class="chips" id="f-types" role="group" aria-label="Ritsoorten"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lagen -->
+    <section class="block">
+      <h3>Kaartlagen</h3>
+      <div class="layers">
+        <label class="switch"><input type="checkbox" data-layer="visited" checked><span class="track"></span>Bezochte gemeenten</label>
+        <label class="switch"><input type="checkbox" data-layer="freq"><span class="track"></span>Hoe vaak</label>
+        <label class="switch"><input type="checkbox" data-layer="first"><span class="track"></span>Eerste bezoek <small>(hele ronde)</small></label>
+        <label class="switch"><input type="checkbox" data-layer="routes"><span class="track"></span>Routekaart <small>(feller = vaker)</small></label>
+        <label class="switch"><input type="checkbox" data-layer="base"><span class="track"></span>Wegenkaart <small>(om te plannen)</small></label>
+        <label class="switch"><input type="checkbox" data-layer="osm" checked><span class="track"></span>OpenStreetMap eronder</label>
+      </div>
+      <p class="hint">Van de eerste drie kleurlagen staat er telkens één aan. De wegenkaart toont je ontbrekende gemeenten tussen de wegen, handig om een rit te plannen.</p>
+    </section>
+
+    <!-- Lijsten -->
+    <section class="block lists">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab active" data-tab="rides">Ritten</button>
+        <button type="button" role="tab" class="tab" data-tab="prov">Provincies</button>
+        <button type="button" role="tab" class="tab" data-tab="new">Nieuwste gemeenten</button>
+      </div>
+      <div class="tabpane" id="tab-rides">
+        <div class="rides-tools">
+          <input class="search" id="ride-search" type="search" placeholder="Zoek op naam of fiets…">
+          <select id="ride-sort" aria-label="Sorteren">
+            <option value="new">Nieuwste eerst</option>
+            <option value="old">Oudste eerst</option>
+            <option value="km">Langste eerst</option>
+            <option value="gem">Meeste gemeenten</option>
+            <option value="fresh">Meeste nieuwe</option>
+          </select>
+        </div>
+        <div class="month-chip gem-chip" id="rides-gem" hidden><span id="rides-gem-text"></span><button type="button" id="rides-gem-x" aria-label="Gemeentefilter wissen">×</button></div>
+        <div class="rides-head"><div class="rides-sum" id="rides-sum"></div>
+          <button type="button" class="link-dl" id="rides-gpx" title="Alle ritten in deze lijst als GPX (zip)">GPX downloaden</button></div>
+        <div id="rides-list"></div>
+      </div>
+      <div class="tabpane" id="tab-prov" hidden></div>
+      <div class="tabpane" id="tab-new" hidden></div>
+    </section>
+
+    <footer class="foot">
+      Grenzen: Kadaster/PDOK, CBS (CC BY 4.0) · Je gegevens blijven in deze browser · Niet verbonden aan Strava · <span id="foot-sync"></span>
+    </footer>
+  </aside>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="sel-bar" id="sel-bar" hidden><span class="sn" id="sel-name"></span><a id="sel-link" href="#" target="_blank" rel="noopener">Op Strava</a><a id="sel-gpx" href="#" download>GPX</a><button type="button" class="sel-detail" id="sel-detail">Details</button><button type="button" id="sel-close" aria-label="Selectie wissen">×</button></div>
+    <div class="map-loading" id="map-loading">Gemeentegrenzen laden…</div>
+  </div>
+</div>
+
+<!-- Activiteit -->
+<main class="view ride-view" id="view-ride" hidden aria-labelledby="ride-title">
+  <button type="button" class="back-btn" id="ride-back"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>Terug</button>
+  <header class="page-head">
+    <div><p class="page-kicker" id="ride-kicker"></p><h1 id="ride-title">Activiteit</h1></div>
+    <div class="page-tools" id="ride-actions"></div>
+  </header>
+  <div class="ride-tiles" id="ride-tiles"></div>
+  <div class="ride-main">
+    <section class="card ride-mapcard" aria-label="Route">
+      <div id="ride-map"></div>
+      <div class="mleg ride-legend" id="ride-legend"></div>
+    </section>
+    <section class="card hcard ride-gems" id="ride-gems" aria-label="Gemeenten onderweg"></section>
+  </div>
+  <section class="card hcard" id="ride-contrib" aria-label="Wat deze rit opleverde"></section>
+</main>
+
+<!-- Kilometers -->
+<main class="kmv view" id="km-view" hidden aria-labelledby="km-title">
+  <header class="page-head kmv-page-head"><div><p class="page-kicker">Jaardoelen, periodes en weken</p><h1 id="km-title">Kilometers</h1></div></header>
+  <div class="kmv-body">
+    <div class="kmv-top">
+      <nav class="seg kviews" aria-label="Overzicht kiezen">
+        <button type="button" class="seg-btn kview" data-kview="year">Jaar</button>
+        <button type="button" class="seg-btn kview" data-kview="period">Periode</button>
+        <button type="button" class="seg-btn kview" data-kview="weeks">Weken</button>
+      </nav>
+      <nav class="seg kmodes" aria-label="Soort kilometers">
+        <button type="button" class="seg-btn kmode" data-mode="bike">Fietsen</button>
+        <button type="button" class="seg-btn kmode" data-mode="foot">Te voet</button>
+        <button type="button" class="seg-btn kmode" data-mode="total">Totaal</button>
+      </nav>
+    </div>
+    <div id="kv-year">
+    <div class="kmv-bar">
+      <div class="yearnav">
+        <button type="button" class="icon-btn" id="km-prev" aria-label="Vorig jaar">‹</button>
+        <span id="km-year">2026</span>
+        <button type="button" class="icon-btn" id="km-next" aria-label="Volgend jaar">›</button>
+      </div>
+      <div class="goal-total" id="goal-total" hidden></div>
+      <form class="goal-form" id="goal-form">
+        <label for="goal-input" id="goal-label">Fietsdoel</label>
+        <input id="goal-input" type="number" min="0" step="100" inputmode="numeric" placeholder="bijv. 6000">
+        <span>km</span>
+        <button class="btn small" type="submit">Opslaan</button>
+      </form>
+    </div>
+    <div class="kpis" id="km-kpis"></div>
+    <div class="kcard">
+      <div class="kcard-head">
+        <h2>Kilometers per maand</h2>
+        <div class="klegend" id="km-legend"></div>
+      </div>
+      <div class="chart" id="km-bars"></div>
+      <p class="hint">Klik op een maand om de ritten te zien.</p>
+    </div>
+    <div class="kmonth" id="km-month" hidden></div>
+    <div class="kcard">
+      <div class="kcard-head">
+        <h2>Opgeteld over het jaar</h2>
+        <div class="klegend" id="km-legend2"></div>
+      </div>
+      <div class="chart" id="km-cum"></div>
+    </div>
+    <p class="hint kfoot">Fietsdoel: 80% in maart t/m oktober (10% per maand), 20% in de andere maanden (5% per maand). Doel te voet: elke maand 1/12. Totaal: beide doelen en schema's opgeteld. Loop je achter, dan wordt wat je mist verdeeld over de resterende maanden: het inhaaldoel. Indoorritten, wandelingen en hardlopen tellen mee voor je kilometers, niet voor gemeenten.</p>
+    </div>
+
+    <!-- Periode van ... tot ... -->
+    <div id="kv-period" hidden>
+      <div class="kmv-bar">
+        <form class="period-form" id="period-form">
+          <label>Van<input type="date" id="period-from" required></label>
+          <label>Tot en met<input type="date" id="period-to" required></label>
+          <button class="btn small primary" type="submit">Toon</button>
+        </form>
+        <div class="chips" id="period-presets" role="group" aria-label="Snel kiezen"></div>
+      </div>
+      <h2 class="ptitle" id="period-title">Periode</h2>
+      <div class="kpis" id="period-kpis"></div>
+      <div class="kcard" id="period-gem"></div>
+      <div class="kcard">
+        <div class="kcard-head"><h2 id="period-bars-title">Kilometers</h2><div class="klegend" id="period-legend"></div></div>
+        <div class="chart" id="period-bars"></div>
+      </div>
+      <div class="kcard">
+        <div class="kcard-head"><h2>Opgeteld in deze periode</h2><div class="klegend" id="period-legend2"></div></div>
+        <div class="chart" id="period-cum"></div>
+      </div>
+      <div class="kmonth" id="period-list"></div>
+    </div>
+
+    <!-- Weken -->
+    <div id="kv-weeks" hidden>
+      <div class="kmv-bar">
+        <div class="yearnav">
+          <button type="button" class="icon-btn" id="wk-prev" aria-label="Vorig jaar">‹</button>
+          <span id="wk-year">2026</span>
+          <button type="button" class="icon-btn" id="wk-next" aria-label="Volgend jaar">›</button>
+        </div>
+        <div class="goal-total" id="wk-goalnote"></div>
+      </div>
+      <div class="kpis" id="wk-kpis"></div>
+      <div class="kcard">
+        <div class="kcard-head"><h2>Kilometers per week</h2><div class="klegend" id="wk-legend"></div></div>
+        <div class="chart" id="wk-bars"></div>
+        <p class="hint">Klik op een week voor alle activiteiten en grafieken van die week.</p>
+      </div>
+      <div class="kcard">
+        <div class="kcard-head"><h2>Alle weken</h2></div>
+        <div class="wk-table" id="wk-table"></div>
+      </div>
+      <p class="hint kfoot">Het weekdoel volgt uit je jaardoel: het maanddoel omgerekend naar de dagen van die week (fietsen 80/20, te voet 1/12 per maand). Voor de lopende week telt het inhaaldoel als je achterloopt. Weken lopen van maandag t/m zondag.</p>
+    </div>
+  </div>
+  <div class="ktip" id="km-tip" hidden></div>
+</main>
+</div>
+</div>
+
+<!-- Zoeken -->
+<dialog id="dlg-search" class="palette" aria-labelledby="search-title">
+  <h2 id="search-title" class="sr-only">Zoeken</h2>
+  <div class="pal-top">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+    <input id="search-input" type="search" placeholder="Zoek een gemeente, rit, maand of datum…" autocomplete="off" aria-label="Zoeken" aria-controls="search-results">
+    <kbd>Esc</kbd>
+  </div>
+  <div class="pal-results" id="search-results" role="listbox" aria-label="Resultaten"></div>
+  <p class="pal-hint">Voorbeelden: <b>Raalte</b>, <b>Pieterpad</b>, <b>mei 2024</b>, <b>12-5-2024</b>. Pijltjes en Enter om te kiezen.</p>
+</dialog>
+
+<!-- Nieuwe ronde -->
+<dialog id="dlg-round" aria-labelledby="dlg-round-title">
+  <form method="dialog" id="form-round" class="form round-dlg">
+    <div class="dr-top"><h2 id="dlg-round-title">Rondes</h2><button type="button" class="gc-x" id="dr-x" aria-label="Sluiten">×</button></div>
+    <div id="dr-list" class="dr-list"></div>
+    <p class="hint">Wijzigingen worden meteen bewaard. Lege "tot en met" = de ronde loopt door. Ronde 1 is de basis en kan niet weg; je ritten blijven altijd bewaard.</p>
+    <h3 class="dr-h3" id="dr-new-title">Nieuwe ronde starten</h3>
+    <p class="hint">Je begint opnieuw bij 0 gemeenten. Alle ritten vanaf de begindatum tellen mee, ook ritten die je al gereden hebt. Je eerdere rondes blijven gewoon bewaard; je wisselt ertussen rechtsboven op het Overzicht.</p>
+    <div class="round-new-dates">
+      <label>Van<input type="date" id="dr-from" required></label>
+      <label>Tot en met <small>(leeg = loopt door)</small><input type="date" id="dr-to"></label>
+    </div>
+    <p class="dr-preview" id="dr-preview" aria-live="polite"></p>
+    <p class="dr-err" id="dr-err" hidden></p>
+    <div class="actions">
+      <button type="submit" class="btn primary" id="dr-ok">Start ronde</button>
+      <button type="button" class="btn" id="dr-cancel">Sluiten</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Instellingen -->
+<dialog id="dlg-settings">
+  <form method="dialog" id="form-settings" class="form">
+    <h2>Instellingen</h2>
+    <input type="hidden" name="client_id"><input type="hidden" name="client_secret">
+    <fieldset>
+      <legend>Ritten binnenhalen</legend>
+      <div class="set-row"><span>Strava-archief (zip)</span><button class="btn small" type="button" data-action="pick-archive">Archief inlezen…</button></div>
+      <div class="set-row" id="set-api-row" hidden><span id="set-api-text">Strava-koppeling</span><a class="btn small" id="set-api-btn" href="#">Koppelen</a><button class="btn small" type="button" id="set-api-retry" hidden>Opnieuw proberen</button></div>
+      <p class="hint">Het archief wordt niet geüpload: het wordt in deze browser gelezen.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Je gegevens</legend>
+      <p class="hint" id="set-data-info">Je ritten en instellingen staan alleen in deze browser op dit apparaat.</p>
+      <div class="set-row"><span>Back-up maken (om te bewaren of op een ander apparaat terug te zetten)</span><button class="btn small" type="button" data-action="backup">Back-up maken</button></div>
+      <div class="set-row"><span>Back-up terugzetten (vervangt wat hier staat)</span><button class="btn small" type="button" data-action="pick-backup">Terugzetten…</button></div>
+      <div class="set-row"><span>Alles van dit apparaat wissen</span><button class="btn small danger-link" type="button" data-action="wipe">Wissen…</button></div>
+    </fieldset>
+    <fieldset id="set-bikes-fs">
+      <legend>Fietsen</legend>
+      <p class="hint" style="margin-top:0">In het Strava-archief staat bij elke rit alleen "Rit". De app leidt gravel en MTB af uit je fietscomputer en de naam van de rit. Kies per fiets wat voor ritten het zijn om dat te verbeteren.</p>
+      <div id="set-bikes"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Feestjes</legend>
+      <div id="set-party"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Rondes</legend>
+      <div id="set-rounds"></div>
+      <div class="round-add">
+        <input type="date" id="set-round-date" aria-label="Begindatum nieuwe ronde">
+        <input type="date" id="set-round-end" aria-label="Einddatum nieuwe ronde (leeg = loopt door)">
+        <button class="btn small" type="button" id="btn-add-round">Ronde toevoegen</button>
+      </div>
+      <p class="hint">Een ronde telt alle ritten van de begindatum tot en met de einddatum. Laat "tot en met" leeg als de ronde doorloopt. Rondes mogen elkaar overlappen. Wijzigingen worden direct bewaard.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Ritsoorten die meetellen</legend>
+      <div id="set-types" class="checks"></div>
+    </fieldset>
+    <div class="dlg-actions">
+      <button class="btn danger-link" type="button" id="btn-disconnect" hidden>Strava ontkoppelen</button>
+      <span class="spacer"></span>
+      <button class="btn" value="cancel" type="submit" formnovalidate>Annuleren</button>
+      <button class="btn primary" value="save" type="submit">Opslaan</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/fflate/fflate.min.js"></script>
+<script src="js/engine/core.js"></script>
+<script src="js/engine/engine.js"></script>
+<div class="party" id="party" hidden>
+  <canvas id="party-canvas" aria-hidden="true"></canvas>
+  <div class="party-card" id="party-card" role="dialog" aria-modal="true" aria-labelledby="party-title"></div>
+</div>
+
+<script src="js/party.js"></script>
+<script src="js/app.js"></script>
+<script src="js/km.js"></script>
+<script src="js/home.js"></script>
+<script src="js/ride.js"></script>
+<script src="js/search.js"></script>
+</body>
+</html>
