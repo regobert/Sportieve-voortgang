@@ -75,7 +75,7 @@
       const group = `walk-${range.start || "begin"}${range.end ? `-${range.end}` : ""}`;
       const items = milestones(firsts, D.total).map((m) => ({ pct: m.pct, date: m.date, build: () => {
         const naam = m.code && D.features[m.code] ? D.features[m.code].naam : "";
-        const titles = { 50: "Halverwege, te voet!", 75: "Driekwart gewandeld!", 90: "Bijna alles bewandeld", 100: "Alle gemeenten bewandeld!" };
+        const titles = { 50: "Halverwege gewandeld!", 75: "Driekwart gewandeld!", 90: "Bijna alles bewandeld", 100: "Alle gemeenten bewandeld!" };
         return {
           title: titles[m.pct],
           lead: `${esc(name)}: ${m.n} van de ${D.total} gemeenten gewandeld.${naam ? ` Nummer ${m.n} was <b>${esc(naam)}</b>.` : ""}`,
@@ -262,7 +262,7 @@
     </div>`;
   }
 
-  const MODE_TXT = { bike: ["fietsen", "fietsdoel", "gereden"], foot: ["te voet", "wandeldoel", "gelopen"], total: ["totaal", "totaaldoel", "afgelegd"] };
+  const MODE_TXT = { bike: ["fietsen", "fietsdoel", "gereden"], foot: ["wandelen", "wandeldoel", "gelopen"], total: ["totaal", "totaaldoel", "afgelegd"] };
   function renderGoal(M) {
     const el = $("home-goal");
     const y = M.y;
@@ -283,7 +283,7 @@
     if (M.ytd >= M.G) status = `<div class="gstatus ahead"><b>Gehaald!</b><span>Je ${goalWord} voor ${y} is binnen.</span></div>`;
     else if (diff >= 0) status = `<div class="gstatus ahead"><b>+${nf.format(diff)} km</b><span>voor op schema. Nog ${nf.format(left)} km te gaan.</span></div>`;
     else status = `<div class="gstatus"><b>−${nf.format(-diff)} km</b><span>achter op schema. Inhalen: ±${nf.format(Math.ceil(left / daysLeft))} km per dag tot 31 december.</span></div>`;
-    const foot = M.mode === "bike" && M.goalFoot ? `<p class="gfoot">Te voet: <b>${nf.format(M.footYtd)}</b> van ${nf.format(M.goalFoot)} km</p>` : "";
+    const foot = M.mode === "bike" && M.goalFoot ? `<p class="gfoot">Wandelen: <b>${nf.format(M.footYtd)}</b> van ${nf.format(M.goalFoot)} km</p>` : "";
     const prog = M.projected && M.c < 12 ? `<p class="gfoot">Prognose eind ${y}: <b>${nf.format(M.projected)} km</b></p>` : "";
     el.innerHTML = `<p class="eyebrow">Jaardoel ${y} · ${lab}</p>
       <p class="goal-big">${nf.format(M.ytd)} <small>/ ${nf.format(M.G)} km</small></p>
@@ -314,7 +314,7 @@
     }).join("");
     el.classList.toggle("walk", M.mode === "foot");
     const sub = { bike: "Fietsen", foot: "Wandelen en hardlopen", total: "Fietsen en wandelen samen" }[M.mode] || "Fietsen";
-    const leg = M.mode === "total" ? '<span><i></i>Fietsen</span><span><i class="w"></i>Te voet</span>' : `<span><i></i>${MODE_TXT[M.mode][2].charAt(0).toUpperCase() + MODE_TXT[M.mode][2].slice(1)}</span>`;
+    const leg = M.mode === "total" ? '<span><i></i>Fietsen</span><span><i class="w"></i>Wandelen</span>' : `<span><i></i>${MODE_TXT[M.mode][2].charAt(0).toUpperCase() + MODE_TXT[M.mode][2].slice(1)}</span>`;
     el.innerHTML = `<div class="hcard-head"><div><h2>Kilometers per maand ${M.y}</h2><p class="sub">${sub}${M.G && M.mode === "bike" ? " · doel 80% in maart–oktober, 20% in de wintermaanden" : ""}</p></div>
       <div class="mleg">${leg}${M.G ? '<span><i class="dash"></i>Maanddoel</span>' : ""}<button type="button" class="link" data-view="km">Naar kilometers</button></div></div>
       <div class="mbars">${bars}</div>`;
@@ -337,7 +337,7 @@
     const from = (hc && center(D.features[hc])) || [52.2, 5.3];
     const list = todo.filter((c) => center(D.features[c])).map((c) => ({ c, d: distKm(from, center(D.features[c])) })).sort((a, b) => a.d - b.d).slice(0, 4);
     const what = V.kind === "foot" ? "Nog niet gewandeld" : "Nog niet gefietst";
-    el.innerHTML = `<div><h2>Volgende uitdaging${V.kind === "foot" ? " te voet" : ""}</h2><p class="sub">${what} in deze ronde${hc ? `, dichtstbij ${esc(D.features[hc].naam)}` : ""}</p></div>
+    el.innerHTML = `<div><h2>Volgende ${V.kind === "foot" ? "wandeluitdaging" : "uitdaging"}</h2><p class="sub">${what} in deze ronde${hc ? `, dichtstbij ${esc(D.features[hc].naam)}` : ""}</p></div>
       <ul class="rows">${list.map(({ c, d }) => {
         const f = D.features[c];
         return `<li><button type="button" class="row-btn" data-code="${esc(c)}"><span class="row-ico blue">${IC.pin}</span>

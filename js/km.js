@@ -21,7 +21,7 @@
   // Per scherm: welke series (gestapeld van onder naar boven), kleur van de lijn, woorden
   const MODES = {
     bike: { name: "Fietsen", series: ["out", "ind"], line: "#eb6834", lineDark: "#b8461a", noun: ["rit", "ritten"], verb: "gereden" },
-    foot: { name: "Te voet", series: ["walk", "run"], line: "#2f9a68", lineDark: "#11724a", noun: ["keer op pad", "keer op pad"], verb: "gelopen" },
+    foot: { name: "Wandelen", series: ["walk", "run"], line: "#2f9a68", lineDark: "#11724a", noun: ["keer op pad", "keer op pad"], verb: "gelopen" },
     total: { name: "Totaal", series: ["out", "ind", "walk", "run"], line: "#3b3a36", lineDark: "#0b0b0b", noun: ["activiteit", "activiteiten"], verb: "afgelegd" },
   };
   const SERIES = { out: "Fietsen buiten", ind: "Fietsen indoor", walk: "Wandelen", run: "Hardlopen" };
@@ -152,7 +152,7 @@
     if (!window.FGParty) return;
     const thisYear = new Date().getFullYear();
     // Eigen feestjes voor het fietsdoel en voor het doel te voet
-    for (const [mode, goals, prefix, label] of [["bike", K.goals, "km", "Fietsdoel"], ["foot", K.goalsFoot, "foot", "Doel te voet"]]) {
+    for (const [mode, goals, prefix, label] of [["bike", K.goals, "km", "Fietsdoel"], ["foot", K.goalsFoot, "foot", "Wandeldoel"]]) {
       for (const [yy, g] of Object.entries(goals)) {
         const y = Number(yy), G = Number(g);
         if (!G) continue;
@@ -165,7 +165,7 @@
   function kmCard(y, G, m, mode) {
     W = weightsFor(mode, y);
     const MD = MODES[mode];
-    const what = mode === "foot" ? "doel te voet" : "fietsdoel";
+    const what = mode === "foot" ? "wandeldoel" : "fietsdoel";
     const rides = K.rides.filter((r) => r.date.startsWith(String(y)) && inMode(mode, r));
     const upto = rides.filter((r) => r.date <= m.date);
     const kmUpto = sum(upto.map((r) => r.km));
@@ -209,7 +209,7 @@
       for (const r of rides) allMonth[Number(r.date.slice(5, 7)) - 1] += r.km;
       const best = allMonth.indexOf(Math.max(...allMonth));
       const lng = rides.reduce((a, b) => (!a || b.km > a.km ? b : a), null);
-      card.title = mode === "foot" ? "Doel te voet gehaald!" : "Fietsdoel gehaald!";
+      card.title = mode === "foot" ? "Wandeldoel gehaald!" : "Fietsdoel gehaald!";
       card.lead = `${nf.format(G)} km ${MD.verb} in ${y}. Gehaald op ${fmtDate(m.date)}.`;
       card.rows = [["Totaal tot nu", `${nf.format(total)} km`], ["Op schema", sched], [cap(MD.noun[1]), nf.format(rides.length)]];
       if (mode === "bike" && ind) card.rows.push(["Waarvan indoor", `${nf.format(ind)} km`]);
@@ -269,10 +269,10 @@
     const total = M.mode === "total";
     $("goal-form").hidden = total;
     $("goal-total").hidden = !total;
-    $("goal-label").textContent = M.mode === "foot" ? "Doel te voet" : "Fietsdoel";
+    $("goal-label").textContent = M.mode === "foot" ? "Wandeldoel" : "Fietsdoel";
     if (total) {
       const b = goalOf("bike", M.y), f = goalOf("foot", M.y);
-      $("goal-total").innerHTML = b || f ? `Totaaldoel <b>${nf.format(b + f)} km</b> <span>= fietsen ${nf.format(b)} + te voet ${nf.format(f)}</span>` : "Stel bij Fietsen en Te voet een doel in.";
+      $("goal-total").innerHTML = b || f ? `Totaaldoel <b>${nf.format(b + f)} km</b> <span>= fietsen ${nf.format(b)} + wandelen ${nf.format(f)}</span>` : "Stel bij Fietsen en Wandelen een doel in.";
     }
     if (document.activeElement !== inp) inp.value = M.G || "";
     renderKpis(M);
@@ -326,7 +326,7 @@
         </div>`);
       } else {
         tiles.push(`<div class="kpi"><div class="kpi-label">${M.MD.name} · deze maand · ${mName}</div><div class="kpi-big">${nf.format(mKm)} km</div><div class="kpi-sub">${M.cnt[M.c]} ${M.MD.noun[M.cnt[M.c] === 1 ? 0 : 1]}</div></div>`);
-        tiles.push(`<div class="kpi"><div class="kpi-label">${M.MD.name} · dit jaar · ${M.y}</div><div class="kpi-big">${nf.format(M.ytd)} km</div><div class="kpi-sub">${M.mode === "total" ? "Stel bij Fietsen en Te voet een doel in om te zien of je op schema ligt." : "Stel hierboven een doel in om te zien of je op schema ligt."}</div></div>`);
+        tiles.push(`<div class="kpi"><div class="kpi-label">${M.MD.name} · dit jaar · ${M.y}</div><div class="kpi-big">${nf.format(M.ytd)} km</div><div class="kpi-sub">${M.mode === "total" ? "Stel bij Fietsen en Wandelen een doel in om te zien of je op schema ligt." : "Stel hierboven een doel in om te zien of je op schema ligt."}</div></div>`);
       }
       if (M.projected != null) {
         const p = M.projected;
@@ -345,12 +345,12 @@
       tiles.push(`<div class="kpi"><div class="kpi-label">${M.MD.name} · totaal ${M.y}</div><div class="kpi-big">${nf.format(total)} km</div>
         <div class="kpi-sub">${M.G ? (total >= M.G ? `<span class="ok">▲ Doel van ${nf.format(M.G)} km gehaald</span>` : `<span class="bad">▼ ${nf.format(M.G - total)} km onder je doel van ${nf.format(M.G)} km</span>`) : `${sum(M.cnt)} ${M.MD.noun[1]}`}</div>
         ${M.G && M.mode !== "total" && window.FGParty ? window.FGParty.medals(kmMilestones(M.y, M.G, M.mode), fmtDate) : ""}</div>`);
-      if (M.G) tiles.push(`<div class="kpi"><div class="kpi-label">Maanddoelen gehaald</div><div class="kpi-big">${hit} van 12</div><div class="kpi-sub">${M.mode === "foot" ? "Elke maand 1/12 van het doel" : M.mode === "bike" ? "Volgens de 80/20-verdeling" : "Fietsen 80/20 plus te voet per maand"}</div></div>`);
+      if (M.G) tiles.push(`<div class="kpi"><div class="kpi-label">Maanddoelen gehaald</div><div class="kpi-big">${hit} van 12</div><div class="kpi-sub">${M.mode === "foot" ? "Elke maand 1/12 van het doel" : M.mode === "bike" ? "Volgens de 80/20-verdeling" : "Fietsen 80/20 plus wandelen per maand"}</div></div>`);
       if (total > 0) tiles.push(`<div class="kpi"><div class="kpi-label">Beste maand</div><div class="kpi-big">${MAAND[best]}</div><div class="kpi-sub">${nf.format(M.tot[best])} km in ${M.cnt[best]} ${M.MD.noun[M.cnt[best] === 1 ? 0 : 1]}</div></div>`);
     } else {
       // Komend jaar
       tiles.push(`<div class="kpi"><div class="kpi-label">${M.y}</div><div class="kpi-big">${M.G ? nf.format(M.G) + " km" : "Nog geen doel"}</div>
-        <div class="kpi-sub">${!M.G ? "Stel hierboven je doel in." : M.mode === "foot" ? `Elke maand ${nf.format(M.G / 12)} km.` : M.mode === "bike" ? `Maart t/m oktober ${nf.format(M.G * 0.1)} km per maand, de andere maanden ${nf.format(M.G * 0.05)} km.` : `Samen ${nf.format(M.G)} km: fietsen plus te voet.`}</div></div>`);
+        <div class="kpi-sub">${!M.G ? "Stel hierboven je doel in." : M.mode === "foot" ? `Elke maand ${nf.format(M.G / 12)} km.` : M.mode === "bike" ? `Maart t/m oktober ${nf.format(M.G * 0.1)} km per maand, de andere maanden ${nf.format(M.G * 0.05)} km.` : `Samen ${nf.format(M.G)} km: fietsen plus wandelen.`}</div></div>`);
     }
     el.innerHTML = tiles.join("");
   }
@@ -559,7 +559,7 @@
     box.innerHTML = svgEl(w, h, g);
 
     const leg = split
-      ? [`<span><i style="background:${COL.out};opacity:.6"></i>Fietsen</span>`, `<span><i style="background:${COL.walk};opacity:.7"></i>Te voet</span>`, `<span><i class="line" style="background:${M.MD.line}"></i>Totaal</span>`]
+      ? [`<span><i style="background:${COL.out};opacity:.6"></i>Fietsen</span>`, `<span><i style="background:${COL.walk};opacity:.7"></i>Wandelen</span>`, `<span><i class="line" style="background:${M.MD.line}"></i>Totaal</span>`]
       : [`<span><i class="area" style="--c:${M.MD.line}"></i>${cap(M.MD.verb)}</span>`];
     if (M.G) leg.push(`<span><i class="line dash"></i>Schema naar je doel</span>`);
     if (M.c >= 0 && M.c < 12 && proj) leg.push(`<span><i class="line dot" style="--c:${M.MD.line}"></i>Prognose</span>`);
@@ -578,7 +578,7 @@
         dot.setAttribute("cx", X(d)); dot.setAttribute("cy", Y(cum[d])); dot.setAttribute("opacity", "1");
         if (split) {
           rows.push([`<i class="dot" style="background:${COL.out}"></i>Fietsen`, `${nf.format(cumBike[d])} km`]);
-          rows.push([`<i class="dot" style="background:${COL.walk}"></i>Te voet`, `${nf.format(cum[d] - cumBike[d])} km`]);
+          rows.push([`<i class="dot" style="background:${COL.walk}"></i>Wandelen`, `${nf.format(cum[d] - cumBike[d])} km`]);
           rows.push(["Totaal", `<b>${nf.format(cum[d])} km</b>`]);
         } else rows.push([cap(M.MD.verb), `<b>${nf.format(cum[d])} km</b>`]);
       } else dot.setAttribute("opacity", "0");
@@ -807,7 +807,7 @@
     g += `<rect class="chit" x="${m.l}" y="${m.t}" width="${w - m.l - m.r}" height="${ih}" fill="transparent"/>`;
     box.innerHTML = svgEl(w, h, g);
     legendEl.innerHTML = (split
-      ? [`<span><i style="background:${COL.out};opacity:.6"></i>Fietsen</span>`, `<span><i style="background:${COL.walk};opacity:.7"></i>Te voet</span>`, `<span><i class="line" style="background:${MD.line}"></i>Totaal</span>`]
+      ? [`<span><i style="background:${COL.out};opacity:.6"></i>Fietsen</span>`, `<span><i style="background:${COL.walk};opacity:.7"></i>Wandelen</span>`, `<span><i class="line" style="background:${MD.line}"></i>Totaal</span>`]
       : [`<span><i class="area" style="--c:${MD.line}"></i>${cap(MD.verb)}</span>`]).concat(goalPerDay && p > 0 ? [`<span><i class="line dash"></i>Doel (opgeteld)</span>`] : []).join("");
     const svg = box.querySelector("svg"), hit = box.querySelector(".chit"), xl = box.querySelector(".cx");
     hit.addEventListener("mousemove", (e) => {
@@ -818,7 +818,7 @@
       if (i <= upto) {
         if (split) {
           rows.push([`<i class="dot" style="background:${COL.out}"></i>Fietsen`, `${nf.format(cumB[i])} km`]);
-          rows.push([`<i class="dot" style="background:${COL.walk}"></i>Te voet`, `${nf.format(cum[i] - cumB[i])} km`]);
+          rows.push([`<i class="dot" style="background:${COL.walk}"></i>Wandelen`, `${nf.format(cum[i] - cumB[i])} km`]);
         }
         rows.push([split ? "Totaal" : cap(MD.verb), `<b>${nf.format(cum[i])} km</b>`]);
       }
