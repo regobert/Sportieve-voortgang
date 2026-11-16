@@ -99,14 +99,15 @@ async function importArchive(file, known, bikes) {
         const summary = track.length ? F.encodePolyline(F.simplify(track, 0.0004)) : "";
         const fs = fsport || "";
         const sport = indoor || foot ? t.st : F.classify(t.st, fs, t.name, t.gear, bikes);
-        const g = track.length && !indoor && !foot ? [...geo.visited(track)] : [];
+        // ook wandelingen en hardlopen krijgen gemeenten (aparte telling op het Overzicht)
+        const g = track.length && !indoor ? [...geo.visited(track)] : [];
         batch.push({
           op: "insert",
           rec: {
             id: t.id, name: t.name, sport_type: sport,
             start_date: t0 ? F.utcISO(t0) : "", start_local: t0 ? F.localISO(t0) : "",
             distance: dist, moving_time: 0, trainer: indoor ? 1 : 0,
-            polyline: summary, track: track.length && !foot ? F.encodePolyline(track) : null,
+            polyline: summary, track: track.length ? F.encodePolyline(track) : null,
             no_gps: track.length ? 0 : 1, source: "archive", gear: t.gear, csv_type: t.st, file_sport: fs, g,
           },
         });

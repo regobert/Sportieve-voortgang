@@ -1137,9 +1137,9 @@
     return { ...M, rides: K.rides, goalFoot: goalOf("foot", M.y), footYtd: sum(K.rides.filter((r) => r.cat === "foot" && r.date.startsWith(String(M.y))).map((r) => r.km)) };
   }
   /** Kilometerscherm openen op één maand */
-  function openMonth(y, m) {
+  function openMonth(y, m, mode = "bike") {
     K.year = y;
-    K.mode = "bike";
+    K.mode = mode === "foot" || mode === "total" ? mode : "bike";
     K.view = "year";
     K.sel = m;
     if (window.FG) window.FG.setView("km");

@@ -1417,6 +1417,7 @@
         ready: total > 0, total, acts: S.acts, types: S.types, features: S.features,
         round: S.round || 0, rounds: S.rounds.map((_, i) => roundLabel(i)),
         roundOpen: isOpen(S.round || 0), roundRange: roundRange(S.round || 0),
+        ranges: S.rounds.map((_, i) => roundRange(i)),
         firsts: total ? roundFirsts(S.round || 0) : new Map(),
         prevFirsts: total && S.round > 0 ? roundFirsts(S.round - 1) : null,
         status: S.status,

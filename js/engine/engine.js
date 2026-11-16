@@ -175,7 +175,9 @@
     await E.ready;
     Object.assign(E.imp, { running: true, message: "Archief openen…", done: 0, total: 0, added: 0, skipped: 0, error: null, finished_at: null });
     const known = {};
-    for (const a of E.acts.values()) if (a.track || a.no_gps || FOOT[a.sport_type]) known[a.id] = a.file_sport == null ? null : a.file_sport;
+    // Al compleet binnen = met route of zonder GPS. Wandelingen zonder opgeslagen route
+    // (uit de pc-versie) worden opnieuw gelezen, zodat ze ook gemeenten krijgen.
+    for (const a of E.acts.values()) if (a.track || a.no_gps) known[a.id] = a.file_sport == null ? null : a.file_sport;
     try {
       const res = await ask("import", { file, known, bikes: E.cfg.bikes || {} });
       if (res.error) throw new Error(res.error);
@@ -417,6 +419,13 @@
     const acts = sorted().filter((a) => !a.trainer && types.has(a.sport_type)).map((a) => ({
       id: a.id, name: a.name, type: a.sport_type, date: (a.start_local || "").slice(0, 10),
       km: Math.round((a.distance || 0) / 100) / 10, bike: a.gear || "", ng: a.no_gps ? 1 : 0, g: a.g || [],
+    }));
+    return json({ activities: acts });
+  };
+  R["GET /api/foot"] = () => {
+    const acts = sorted().filter((a) => FOOT[a.sport_type] && !a.trainer).map((a) => ({
+      id: a.id, name: a.name, type: a.sport_type, date: (a.start_local || "").slice(0, 10),
+      km: Math.round((a.distance || 0) / 100) / 10, g: a.g || [], track: a.track ? 1 : 0,
     }));
     return json({ activities: acts });
   };
