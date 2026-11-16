@@ -268,11 +268,14 @@
     const y = M.y;
     const [lab, goalWord, verb] = MODE_TXT[M.mode] || MODE_TXT.bike;
     el.classList.toggle("walk", M.mode === "foot");
+    H.goalM = M;
+    const edit = `<button type="button" class="goal-edit" data-goal-edit aria-label="Jaardoel ${y} aanpassen" title="Jaardoel aanpassen"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>Aanpassen</button>`;
+    if (H.goalEdit) { if (el.querySelector("#home-goal-form")) return; el.innerHTML = goalForm(M); const i = el.querySelector("input"); if (i) i.focus(); return; }
     if (!M.G) {
       el.innerHTML = `<p class="eyebrow">Jaardoel ${y} · ${lab}</p>
         <p class="goal-big">${nf.format(M.ytd)} <small>km</small></p>
         <p class="hero-p">Je hebt nog geen ${goalWord} voor ${y}. Stel er een in bij Kilometers; dan zie je hier of je op schema ligt.</p>
-        <div class="actions"><button type="button" class="btn" data-view="km">Doel instellen</button></div>`;
+        <div class="actions"><button type="button" class="btn primary" data-goal-edit>Doel instellen</button></div>`;
       return;
     }
     const diff = M.ytd - M.planToday;
@@ -285,11 +288,28 @@
     else status = `<div class="gstatus"><b>−${nf.format(-diff)} km</b><span>achter op schema. Inhalen: ±${nf.format(Math.ceil(left / daysLeft))} km per dag tot 31 december.</span></div>`;
     const foot = M.mode === "bike" && M.goalFoot ? `<p class="gfoot">Wandelen: <b>${nf.format(M.footYtd)}</b> van ${nf.format(M.goalFoot)} km</p>` : "";
     const prog = M.projected && M.c < 12 ? `<p class="gfoot">Prognose eind ${y}: <b>${nf.format(M.projected)} km</b></p>` : "";
-    el.innerHTML = `<p class="eyebrow">Jaardoel ${y} · ${lab}</p>
+    el.innerHTML = `<div class="goal-head"><p class="eyebrow">Jaardoel ${y} · ${lab}</p>${edit}</div>
       <p class="goal-big">${nf.format(M.ytd)} <small>/ ${nf.format(M.G)} km</small></p>
       <div class="gbar" role="img" aria-label="${nf.format(M.ytd)} van ${nf.format(M.G)} km; schema vandaag ${nf.format(M.planToday)} km"><span style="width:${Math.min(100, (M.ytd / M.G) * 100).toFixed(1)}%"></span><i style="left:${Math.min(100, (M.planToday / M.G) * 100).toFixed(1)}%"></i></div>
       <div class="gmeta"><span>${nf.format((M.ytd / M.G) * 100)}% ${verb}</span><span>Schema vandaag: ${nf.format(M.planToday)} km</span></div>
       ${status}${prog}${foot}`;
+  }
+
+  // Jaardoel invullen of aanpassen, direct op het overzicht
+  function goalForm(M) {
+    const y = M.y;
+    const val = (kind) => window.FGKm.goal(kind, y) || "";
+    const field = (kind, label) => `<label class="gf-row"><span>${label}</span><input type="number" name="${kind}" min="0" max="200000" step="50" inputmode="numeric" placeholder="bijv. ${kind === "foot" ? "700" : "5000"}" value="${val(kind)}"><span class="gf-u">km</span></label>`;
+    const fields = M.mode === "total"
+      ? field("bike", "Fietsen") + field("foot", "Wandelen")
+      : field(M.mode === "foot" ? "foot" : "bike", M.mode === "foot" ? "Wandeldoel" : "Fietsdoel");
+    const hint = M.mode === "total" ? "Het totaaldoel is fietsen en wandelen opgeteld." : M.mode === "foot" ? "Het schema verdeelt dit gelijk over de twaalf maanden." : "Het schema legt 80% in maart t/m oktober.";
+    return `<form class="goal-edit-form" id="home-goal-form">
+        <p class="eyebrow">Jaardoel ${y} instellen</p>
+        ${fields}
+        <p class="hint">${hint} Leeg of 0 = geen doel.</p>
+        <div class="actions"><button type="submit" class="btn primary">Opslaan</button><button type="button" class="btn" data-goal-cancel>Annuleren</button></div>
+      </form>`;
   }
 
   function renderMonths(M) {
@@ -436,7 +456,19 @@
       else try { localStorage.setItem("fg-home-mode", H.mode); } catch { /* geen opslag */ }
       render();
     });
+    $("view-home").addEventListener("submit", async (e) => {
+      if (e.target.id !== "home-goal-form") return;
+      e.preventDefault();
+      const y = H.goalM ? H.goalM.y : new Date().getFullYear();
+      for (const inp of e.target.querySelectorAll("input[name]")) {
+        if (Number(inp.value || 0) !== window.FGKm.goal(inp.name, y)) await window.FGKm.setGoal(inp.name, y, inp.value);
+      }
+      H.goalEdit = false;
+      render();
+    });
     $("view-home").addEventListener("click", (e) => {
+      if (e.target.closest("[data-goal-edit]")) { H.goalEdit = true; renderGoal(H.goalM); return; }
+      if (e.target.closest("[data-goal-cancel]")) { H.goalEdit = false; renderGoal(H.goalM); return; }
       const g = e.target.closest("[data-code]");
       if (g) { window.FG.focusGemeente(g.dataset.code); return; }
       const r = e.target.closest("[data-ride]");

@@ -927,3 +927,15 @@ body.dragging .rc-drop { border-color: var(--blue); background: color-mix(in srg
 .map-mode, .map-mode.home-mode { order: 3; width: 100%; display: flex; }
 .map-mode button { flex: 1; }
 #view-map[data-sport="foot"] .side { --accent: var(--walk); --accent-ink: var(--walk-ink); --accent-faint: var(--walk-soft); --accent-soft: var(--walk-soft); }
+
+/* ============================================================ jaardoel aanpassen op het overzicht */
+.goal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.goal-edit { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; font-weight: 600; min-height: 32px; padding: 0 10px; border-radius: 9px; cursor: pointer; }
+.goal-edit:hover { color: var(--ink); border-color: var(--line-2); }
+.goal-edit-form { display: flex; flex-direction: column; gap: 12px; }
+.gf-row { display: grid; grid-template-columns: 90px 1fr auto; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+.gf-row input { font: inherit; font-size: 18px; font-weight: 600; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); color: var(--ink); width: 100%; }
+.gf-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.walk .gf-row input:focus { outline-color: var(--walk); }
+.gf-u { color: var(--muted); font-weight: 500; }
+.goal-edit-form .hint { margin: 0; }

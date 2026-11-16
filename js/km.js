@@ -1152,5 +1152,19 @@
     if (window.FG) window.FG.setView("km");
   }
   window.addEventListener("fg-theme", () => { if (K.visible && !$("km-view").hidden) render(); });
-  window.FGKm = { show, refresh, summary, openMonth, openYear, loaded: () => K.loaded };
+  /** Jaardoel opslaan (ook vanaf het overzicht); kind = "bike" of "foot" */
+  async function setGoal(kind, y, km) {
+    const r = await fetch("/api/goals", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year: y, km: Number(km) || 0, kind: kind === "foot" ? "foot" : "bike" }),
+    });
+    const d = await r.json();
+    if (!d.ok) return false;
+    if (d.goals) K.goals = d.goals;
+    if (d.goals_foot) K.goalsFoot = d.goals_foot;
+    checkKmParties();
+    if (K.visible && !$("km-view").hidden) render();
+    return true;
+  }
+  window.FGKm = { show, refresh, summary, openMonth, openYear, setGoal, goal: (kind, y) => goalOf(kind, y), loaded: () => K.loaded };
 })();
