@@ -3,7 +3,7 @@
 /* global FGCore */
 (function () {
 "use strict";
-self.importScripts("../../vendor/fflate/fflate.min.js", "core.js");
+self.importScripts("../../vendor/fflate/fflate.min.js" + self.location.search, "core.js" + self.location.search);
 
 const F = FGCore;
 let geo = null;

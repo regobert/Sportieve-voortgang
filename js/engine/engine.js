@@ -8,6 +8,8 @@
 (function () {
   "use strict";
   const F = FGCore;
+  // Versie uit index.html (?v=...), zodat de worker na een update ook vers wordt geladen
+  const VQ = document.currentScript ? new URL(document.currentScript.src).search : "";
   const DB_NAME = "sportieve-voortgang";
   const FOOT = F.FOOT_TYPES;
 
@@ -75,7 +77,7 @@
   const pending = new Map();
   function getWorker() {
     if (!worker) {
-      worker = new Worker("js/engine/worker.js");
+      worker = new Worker("js/engine/worker.js" + VQ);
       worker.onmessage = (e) => onWorker(e.data);
     }
     return worker;
