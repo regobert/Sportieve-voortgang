@@ -442,7 +442,10 @@
           }
           e += 4 + len;
         }
-        if (!name.endsWith("/")) this.entries.set(name, { name, method, csize, usize, off });
+        // tijdstip van het bestand in de zip (DOS-formaat): zo weten we wanneer Strava het archief maakte
+        const dt = v.getUint16(q + 12, true), dd = v.getUint16(q + 14, true);
+        const mtime = dd ? new Date(((dd >> 9) & 0x7f) + 1980, ((dd >> 5) & 0xf) - 1, dd & 0x1f, dt >> 11, (dt >> 5) & 0x3f, (dt & 0x1f) * 2).getTime() : 0;
+        if (!name.endsWith("/")) this.entries.set(name, { name, method, csize, usize, off, mtime });
         q += 46 + nl + el + cl;
       }
       return this;

@@ -35,6 +35,8 @@ async function importArchive(file, known, bikes) {
   if (!csvs.length) throw new Error("Dit lijkt geen Strava-archief: activities.csv ontbreekt in de zip.");
   const csvName = csvs.sort((a, b) => a.length - b.length)[0];
   const base = csvName.slice(0, -"activities.csv".length);
+  const csvEntry = zip.entries.get(csvName);
+  const exported = csvEntry && csvEntry.mtime > 0 ? csvEntry.mtime : (file.lastModified || 0);
   let text = new TextDecoder("utf-8").decode(await zip.read(csvName));
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   const rows = F.parseCSV(text).filter((r) => r.length > 1 || (r[0] || "").trim());
@@ -118,7 +120,7 @@ async function importArchive(file, known, bikes) {
     if (i % 5 === 0 || i === todo.length - 1) post({ type: "progress", message: `Archief inlezen: ${i + 1} van ${total}`, done: i + 1, total, added, skipped });
   }
   flush();
-  return { added, skipped, stopped: stopFlag };
+  return { added, skipped, stopped: stopFlag, exported };
 }
 
 // ------------------------------------------------------------------ berichten

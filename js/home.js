@@ -295,6 +295,40 @@
       ${status}${prog}${foot}`;
   }
 
+  // Strava-archief: wanneer kun je weer een nieuw archief aanvragen (1x per week)?
+  function renderStrava(D) {
+    const el = $("home-strava");
+    const st = D.status || {};
+    const sw = window.FG.stravaWindow(st);
+    const day = (ts, wd) => new Date(ts * 1000).toLocaleDateString("nl-NL", { weekday: wd ? "long" : undefined, day: "numeric", month: "long" });
+    const newest = st.newest ? new Date(st.newest).toLocaleDateString("nl-NL", { day: "numeric", month: "long" }) : "";
+    const archTxt = sw.arch ? `${sw.estimated ? "Laatst ingelezen" : "Laatste archief"}: ${day(sw.arch)}${newest ? ` · nieuwste activiteit: ${newest}` : ""}.` : "Nog geen archief ingelezen.";
+    const ext = `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>`;
+    const read = (primary) => `<button type="button" class="btn${primary ? " primary" : ""}" data-action="pick-archive">Archief inlezen</button>`;
+    let state, pill, sub, acts;
+    if (sw.pending) {
+      state = "pending";
+      pill = `Aangevraagd op ${day(sw.req)}`;
+      sub = `Strava mailt je een downloadlink, meestal binnen een paar uur. Download de zip en lees hem hier in. ${archTxt}`;
+      acts = `${read(true)}<button type="button" class="link" data-strava-undo>Toch niet aangevraagd</button>`;
+    } else if (sw.canRequest) {
+      state = "open";
+      pill = "Nieuw archief aanvragen kan";
+      sub = `${archTxt} Vraag bij Strava een nieuw archief aan (Instellingen › Mijn account › Download je account › Aan de slag). Dat kan één keer per week.`;
+      acts = `<a class="btn primary" href="${window.FG.stravaUrl}" target="_blank" rel="noopener noreferrer" data-strava-req>Aanvragen bij Strava ${ext}</a>${read(false)}`;
+    } else {
+      state = "wait";
+      const hm = new Date(sw.next * 1000).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+      pill = sw.daysLeft === 0 ? `Weer mogelijk vandaag vanaf ${hm}` : `Weer mogelijk vanaf ${day(sw.next, true)}`;
+      sub = `${archTxt} Strava staat één archief per week toe${sw.daysLeft === 0 ? "." : `; nog ${sw.daysLeft === 1 ? "1 dag" : `${sw.daysLeft} dagen`} wachten.`}`;
+      acts = read(false);
+    }
+    el.dataset.state = state;
+    el.innerHTML = `<div class="ss-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></div>
+      <div class="ss-txt"><p class="ss-title">Strava-archief <span class="ss-pill">${pill}</span></p><p class="ss-sub">${sub}</p></div>
+      <div class="ss-act">${acts}</div>`;
+  }
+
   // Jaardoel invullen of aanpassen, direct op het overzicht
   function goalForm(M) {
     const y = M.y;
@@ -428,6 +462,7 @@
     try { H.foot = (await (await fetch("/api/foot")).json()).activities || []; } catch { H.foot = []; }
     if (seq !== H.seq) return;
     checkFootParties(D);
+    renderStrava(D);
     renderHero(D);
     renderNext(D);
     renderProv(D);
@@ -467,6 +502,8 @@
       render();
     });
     $("view-home").addEventListener("click", (e) => {
+      if (e.target.closest("[data-strava-req]")) { window.FG.stravaRequested(true).then(render); return; }
+      if (e.target.closest("[data-strava-undo]")) { window.FG.stravaRequested(false).then(render); return; }
       if (e.target.closest("[data-goal-edit]")) { H.goalEdit = true; renderGoal(H.goalM); return; }
       if (e.target.closest("[data-goal-cancel]")) { H.goalEdit = false; renderGoal(H.goalM); return; }
       const g = e.target.closest("[data-code]");

@@ -16,6 +16,23 @@
   };
   const W = () => WORD[SPORT];
 
+  // Strava staat één archief per week toe: wanneer kan het weer?
+  const STRAVA_URL = "https://www.strava.com/settings/profile";
+  function stravaWindow(st) {
+    const DAY = 86400, now = Date.now() / 1000;
+    const arch = (st && (st.archive_date || st.last_import)) || 0;
+    const req = (st && st.requested_at) || 0;
+    const base = Math.max(arch, req);
+    const next = base ? base + 7 * DAY : 0;
+    return {
+      arch, req, next, estimated: !!(st && !st.archive_date && st.last_import),
+      pending: req > arch, canRequest: !next || now >= next,
+      // in kalenderdagen: vandaag = 0
+      daysLeft: next ? Math.max(0, Math.round((new Date(next * 1000).setHours(12, 0, 0, 0) - new Date().setHours(12, 0, 0, 0)) / 864e5)) : 0,
+    };
+  }
+  const fmtTs = (ts, wd) => new Date(ts * 1000).toLocaleDateString("nl-NL", { weekday: wd ? "long" : undefined, day: "numeric", month: "long" });
+
   // Kleuren komen uit de stylesheet (licht of donker), zie themeColors()
   const C = {
     visited: "#eb6834",
@@ -1079,7 +1096,9 @@
       btn.hidden = false; btn.textContent = "Ander bestand"; btn.dataset.action = "pick-archive";
     } else {
       msg = im.message && im.finished_at ? im.message : "Strava-archief";
-      detail = st.last_import ? `Laatst ingelezen ${new Date(st.last_import * 1000).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" })}. Nieuwe ritten? Lees een nieuw archief in.` : "Lees je Strava-archief (zip) in.";
+      const sw = stravaWindow(st);
+      const when = sw.pending ? `Nieuw archief aangevraagd op ${fmtTs(sw.req)}.` : sw.canRequest ? "Je kunt bij Strava weer een nieuw archief aanvragen." : `Nieuw archief aanvragen bij Strava kan weer vanaf ${fmtTs(sw.next, true)}.`;
+      detail = st.last_import ? `Laatst ingelezen ${new Date(st.last_import * 1000).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" })}. ${when}` : "Lees je Strava-archief (zip) in.";
       btn.hidden = false; btn.textContent = "Archief inlezen"; btn.dataset.action = "pick-archive";
     }
     $("imp-msg").textContent = msg;
@@ -1469,6 +1488,11 @@
       };
     },
     openRide(id) { if (window.FGRide) window.FGRide.open(id); },
+    stravaWindow, stravaUrl: STRAVA_URL,
+    async stravaRequested(on) {
+      await fetch("/api/strava-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ at: on ? 1 : null }) });
+      await pollStatus();
+    },
     sport: () => SPORT,
     setSport,
     view: () => curView,

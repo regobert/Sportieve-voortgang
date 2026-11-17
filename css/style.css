@@ -939,3 +939,21 @@ body.dragging .rc-drop { border-color: var(--blue); background: color-mix(in srg
 .walk .gf-row input:focus { outline-color: var(--walk); }
 .gf-u { color: var(--muted); font-weight: 500; }
 .goal-edit-form .hint { margin: 0; }
+
+/* ============================================================ Strava-archief (overzicht) */
+.strava-strip { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 16px 20px; }
+.strava-strip[data-state="open"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.ss-ico { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); }
+.strava-strip[data-state="open"] .ss-ico { background: var(--accent-soft); color: var(--accent-ink); }
+.ss-txt { flex: 1; min-width: 0; }
+.ss-title { margin: 0; font-weight: 700; font-size: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ss-pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
+.strava-strip[data-state="open"] .ss-pill { background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
+.strava-strip[data-state="pending"] .ss-pill { background: var(--blue-soft); border-color: transparent; color: var(--blue-ink); }
+.ss-sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.ss-act { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ss-act a.btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+@media (max-width: 820px) {
+  .strava-strip { flex-wrap: wrap; align-items: flex-start; }
+  .ss-act { width: 100%; justify-content: flex-start; }
+}

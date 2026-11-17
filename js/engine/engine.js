@@ -184,6 +184,9 @@
       const res = await ask("import", { file, known, bikes: E.cfg.bikes || {} });
       if (res.error) throw new Error(res.error);
       E.meta.last_import = Math.floor(Date.now() / 1000);
+      // Wanneer maakte Strava dit archief? Bepaalt wanneer je weer een nieuw archief kunt aanvragen.
+      const ex = Math.floor((res.exported || 0) / 1000);
+      if (ex > 0 && ex <= E.meta.last_import + 86400 && ex > (E.meta.archive_date || 0)) E.meta.archive_date = ex;
       reclassify();
       await saveCfg();
       let msg = res.stopped ? "Inlezen gestopt." : `Archief ingelezen: ${res.added} activiteiten toegevoegd`;
@@ -298,6 +301,8 @@
       sport_types: [...types], rondes: cleanRounds(E.cfg.rondes || []), seen: E.cfg.seen || [],
       party: E.cfg.party !== false, all_types: Object.entries(F.ALL_BIKE_TYPES),
       rides, processed: rides, no_gps: noGps, last_sync: null, last_import: E.meta.last_import || null,
+      archive_date: E.meta.archive_date || null, requested_at: E.meta.requested_at || null,
+      newest: sorted().reduce((m, a) => (a.start_date > m ? a.start_date : m), ""),
       sync: { running: false, error: null, message: "", done: 0, total: 0 },
       import: { ...E.imp }, now: Math.floor(Date.now() / 1000),
     });
@@ -405,6 +410,13 @@
     const add = (b.add || []).filter((k) => typeof k === "string" || typeof k === "number").map((k) => String(k).slice(0, 80));
     E.cfg.seen = [...new Set([...(E.cfg.seen || []), ...add])].slice(-2000);
     return saveCfg().then(() => json({ ok: true }));
+  };
+  // "Ik heb bij Strava een nieuw archief aangevraagd" (of dat weer wissen)
+  R["POST /api/strava-request"] = async (b) => {
+    if (b && b.at === null) delete E.meta.requested_at;
+    else E.meta.requested_at = Math.floor(Date.now() / 1000);
+    await saveCfg();
+    return json({ ok: true, requested_at: E.meta.requested_at || null });
   };
   R["POST /api/goals"] = (b) => {
     const year = String(b.year || "");
