@@ -118,7 +118,9 @@
     const key = Object.keys(D.features).length;
     if (!H.paths || H.pathsKey !== key) { H.paths = buildPaths(D.features); H.pathsKey = key; }
     const paths = H.paths.map(([c, d]) => `<path class="${cls(c)}" d="${d}"/>`).join("");
-    return `<button type="button" class="mini-map" data-view="map" aria-label="Open de kaart"><svg viewBox="0 0 560 660" aria-hidden="true">${paths}</svg></button>`;
+    // gestreept patroon voor gemeenten die zowel gefietst als gewandeld zijn
+    const defs = `<defs><pattern id="mm-both" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" class="pb-a"/><rect width="4.5" height="9" class="pb-b"/></pattern></defs>`;
+    return `<button type="button" class="mini-map" data-view="map" aria-label="Open de kaart"><svg viewBox="0 0 560 660" aria-hidden="true">${defs}${paths}</svg></button>`;
   }
 
   // ------------------------------------------------------------ helpers
@@ -233,6 +235,7 @@
 
   // Alles: fietsen en wandelen naast elkaar
   function renderHeroAll(D) {
+    H.lastD = D;
     const el = $("home-hero");
     el.classList.remove("walk");
     const B = viewFor(D, "bike"), W = viewFor(D, "foot");
@@ -240,15 +243,29 @@
     const total = D.total;
     const both = [...B.firsts.keys()].filter((c) => W.firsts.has(c)).length;
     const union = new Set([...B.firsts.keys(), ...W.firsts.keys()]).size;
-    const col = (V, color, label) => `<div class="hero-col">
+    // Klik op een cirkel (of in de legenda) om die sport voorop te zetten op het kaartje; nog eens klikken = alles
+    const F = H.allFocus || "";
+    const col = (V, kind, color, label) => `<button type="button" class="hero-col pick${F && F !== kind ? " dim" : ""}" data-focus="${kind}" aria-pressed="${F === kind}" title="${F === kind ? "Toon weer alles" : `Zet ${label.toLowerCase()} voorop op het kaartje`}">
         ${ring(total ? V.firsts.size / total : 0, 150, 15, `<span class="ring-n">${nf.format(V.firsts.size)}</span><span class="ring-of">van ${nf.format(total)}</span>`, color)}
-        <p class="hero-col-l"><span class="dot" style="background:${color}"></span>${label}</p></div>`;
+        <span class="hero-col-l"><span class="dot" style="background:${color}"></span>${label}</span></button>`;
+    const cls = (c) => {
+      const b = B.firsts.has(c), w = W.firsts.has(c);
+      if (!b && !w) return "u";
+      if (F === "bike") return b ? "v" : "w dim";
+      if (F === "foot") return w ? "w" : "v dim";
+      return b && w ? "both" : b ? "v" : "w";
+    };
+    const leg = F === "bike"
+      ? `<span><i class="v"></i>gefietst (${nf.format(B.firsts.size)})</span><span class="faint"><i class="w"></i>alleen gewandeld</span>`
+      : F === "foot"
+        ? `<span><i class="w"></i>gewandeld (${nf.format(W.firsts.size)})</span><span class="faint"><i class="v"></i>alleen gefietst</span>`
+        : `<span><i class="v"></i>alleen gefietst</span><span><i class="both"></i>allebei</span><span><i class="w"></i>alleen gewandeld</span>`;
     el.innerHTML = `<div class="hero-wrap">
       <div class="hero-main">
         <p class="eyebrow acc">${esc(l.name)} · ${esc(l.since)} · fietsen en wandelen</p>
         <div class="hero-row">
-          ${col(B, "var(--accent)", "Gefietst")}
-          ${col(W, "var(--walk)", "Gewandeld")}
+          ${col(B, "bike", "var(--accent)", "Gefietst")}
+          ${col(W, "foot", "var(--walk)", "Gewandeld")}
           <div class="hero-txt">
             <p class="hero-big">${nf.format(union)} gemeenten bezocht</p>
             <p class="hero-p">${nf.format(both)} gefietst én gewandeld.<br>${nf.format(total - union)} nog helemaal niet.</p>
@@ -257,8 +274,9 @@
         ${W.noRoutes ? `<div class="hero-cta walk-hint"><div><b>Gewandelde gemeenten ontbreken nog</b><span>Lees je Strava-archief één keer opnieuw in.</span></div><button type="button" class="btn" data-action="pick-archive">Archief inlezen</button></div>` : ""}
         <div class="actions"><button type="button" class="btn primary" data-view="map">${IC.map}Open de kaart</button></div>
       </div>
-      <div class="mini-wrap">${miniMap(D, (c) => (B.firsts.has(c) ? "v" : W.firsts.has(c) ? "w" : "u"))}
-        <p class="mini-leg"><span><i class="v"></i>gefietst</span><span><i class="w"></i>alleen gewandeld</span></p></div>
+      <div class="mini-wrap">${miniMap(D, cls)}
+        <p class="mini-leg">${leg}</p>
+        <p class="mini-tip">${F ? "Klik nog eens op de cirkel om alles te tonen." : "Klik op een cirkel om die sport voorop te zetten."}</p></div>
     </div>`;
   }
 
@@ -502,6 +520,8 @@
       render();
     });
     $("view-home").addEventListener("click", (e) => {
+      const fo = e.target.closest("[data-focus]");
+      if (fo) { H.allFocus = H.allFocus === fo.dataset.focus ? "" : fo.dataset.focus; if (H.lastD) renderHeroAll(H.lastD); return; }
       if (e.target.closest("[data-strava-req]")) { window.FG.stravaRequested(true).then(render); return; }
       if (e.target.closest("[data-strava-undo]")) { window.FG.stravaRequested(false).then(render); return; }
       if (e.target.closest("[data-goal-edit]")) { H.goalEdit = true; renderGoal(H.goalM); return; }
