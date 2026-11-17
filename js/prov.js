@@ -74,46 +74,69 @@
     });
   }
 
-  // ------------------------------------------------------------ kaart
-  function provMap(D, prov, codes, cls) {
+  // ------------------------------------------------------------ kaart (Leaflet, met OpenStreetMap eronder)
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let osm = true;
+  try { osm = localStorage.getItem("fg-osm") !== "0"; } catch { /* geen opslag */ }
+  const M = { map: null, tiles: null, own: null, nb: null, key: "" };
+
+  function ensureMap() {
+    if (M.map) return;
+    M.map = L.map("prov-leaf", { zoomSnap: 0.25, scrollWheelZoom: false, attributionControl: true });
+    M.tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bijdragers',
+    });
+    M.map.on("click", () => { if (P.sel) { P.sel = ""; render(); } });
+  }
+  function styleFor(cls, sel) {
+    const C = { v: css("--accent"), w: css("--walk"), u: css("--unvisited"), line: css("--surface") };
+    const visitedOp = osm ? 0.5 : 0.95;
+    const st = { color: osm ? "#6b6a66" : C.line, weight: sel ? 3 : osm ? 0.9 : 1.2, opacity: osm ? 0.8 : 1, fillOpacity: visitedOp, className: "" };
+    if (cls === "v") st.fillColor = C.v;
+    else if (cls === "w") st.fillColor = C.w;
+    else if (cls === "both") { st.fillColor = C.v; st.className = "pv-both"; st.fillOpacity = osm ? 0.6 : 1; }
+    else { st.fillColor = C.u; st.fillOpacity = osm ? 0.12 : 1; }
+    if (sel) { st.color = css("--ink"); st.opacity = 1; }
+    return st;
+  }
+  function drawMap(D, codes, cls) {
+    try { osm = localStorage.getItem("fg-osm") !== "0"; } catch { /* geen opslag */ }
+    $("prov-osm").checked = osm;
+    ensureMap();
+    if (osm) { if (!M.map.hasLayer(M.tiles)) M.tiles.addTo(M.map); } else if (M.map.hasLayer(M.tiles)) M.map.removeLayer(M.tiles);
+    $("prov-leaf").classList.toggle("no-osm", !osm);
     const inProv = new Set(codes);
-    let s = 90, w = 180, n = -90, e = -180;
-    for (const c of codes) {
-      const b = D.features[c].layer.getBounds();
-      if (!b.isValid()) continue;
-      s = Math.min(s, b.getSouth()); n = Math.max(n, b.getNorth());
-      w = Math.min(w, b.getWest()); e = Math.max(e, b.getEast());
-    }
-    const lat0 = (s + n) / 2, kx = Math.cos((lat0 * Math.PI) / 180);
-    const padX = (e - w) * 0.06, padY = (n - s) * 0.06;
-    s -= padY; n += padY; w -= padX; e += padX;
-    const W = 640, scale = W / ((e - w) * kx), H = Math.round((n - s) * scale);
-    const pt = (lon, lat) => [(lon - w) * kx * scale, (n - lat) * scale];
-    const ring = (coords) => {
-      let d = "", lx = -1e9, ly = -1e9, k = 0;
-      for (const [lon, lat] of coords) {
-        const [x, y] = pt(lon, lat);
-        if (Math.abs(x - lx) + Math.abs(y - ly) < 0.9) continue;
-        d += (k ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
-        lx = x; ly = y; k++;
+    let bounds = null;
+    for (const c of codes) { const b = D.features[c].layer.getBounds(); if (b.isValid()) bounds = bounds ? bounds.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast()); }
+    const key = `${P.prov}|${Object.keys(D.features).length}`;
+    if (M.key !== key) {
+      if (M.own) M.map.removeLayer(M.own);
+      if (M.nb) M.map.removeLayer(M.nb);
+      M.nb = L.layerGroup(), M.own = L.layerGroup();
+      const wide = bounds.pad(0.6);
+      for (const [code, f] of Object.entries(D.features)) {
+        if (!f.layer.feature) continue;
+        if (inProv.has(code)) {
+          const lyr = L.geoJSON(f.layer.feature, { style: () => styleFor("u", false) });
+          lyr.eachLayer((l) => { l.pcode = code; l.bindTooltip(f.naam, { sticky: true, direction: "top", className: "prov-tip" }); });
+          lyr.on("click", (e) => { L.DomEvent.stopPropagation(e); P.sel = P.sel === code ? "" : code; render(); });
+          M.own.addLayer(lyr);
+        } else if (wide.intersects(f.layer.getBounds())) {
+          M.nb.addLayer(L.geoJSON(f.layer.feature, { interactive: false, style: () => ({ color: "#8a8984", weight: 0.6, opacity: 0.5, fillColor: css("--unvisited"), fillOpacity: osm ? 0.05 : 0.5 }) }));
+        }
       }
-      return k > 2 ? d + "Z" : "";
-    };
-    const pathOf = (f) => {
-      const g = f.layer.feature && f.layer.feature.geometry;
-      if (!g) return "";
-      const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
-      return polys.map((p) => ring(p[0])).join("");
-    };
-    const nb = [], own = [];
-    for (const [code, f] of Object.entries(D.features)) {
-      if (inProv.has(code)) { own.push(`<path class="${cls(code)}${P.sel === code ? " sel" : ""}" data-pcode="${esc(code)}" d="${pathOf(f)}"><title>${esc(f.naam)}</title></path>`); continue; }
-      const b = f.layer.getBounds();
-      if (!b.isValid() || b.getSouth() > n || b.getNorth() < s || b.getWest() > e || b.getEast() < w) continue;
-      nb.push(`<path class="nb" d="${pathOf(f)}"/>`);
+      M.nb.addTo(M.map); M.own.addTo(M.map);
+      M.key = key;
+      M.fit = bounds;
+      setTimeout(() => { M.map.invalidateSize(); M.map.fitBounds(bounds, { padding: [12, 12] }); }, 30);
     }
-    const defs = `<defs><pattern id="pv-both" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" class="pb-a"/><rect width="5" height="10" class="pb-b"/></pattern></defs>`;
-    return `<svg class="prov-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kaart van ${esc(prov)}">${defs}<g>${nb.join("")}</g><g>${own.join("")}</g></svg>`;
+    M.nb.eachLayer((g) => g.setStyle({ fillOpacity: osm ? 0.05 : 0.5 }));
+    M.own.eachLayer((g) => g.eachLayer((l) => {
+      const st = styleFor(cls(l.pcode), P.sel === l.pcode);
+      l.setStyle(st);
+      if (l._path) { l._path.classList.toggle("pv-both", st.className === "pv-both"); }
+      if (P.sel === l.pcode) l.bringToFront();
+    }));
   }
 
   // ------------------------------------------------------------ render
@@ -160,9 +183,10 @@
     const legend = sport === "all"
       ? `<span><i class="v"></i>alleen gefietst</span><span><i class="both"></i>allebei</span><span><i class="w"></i>alleen gewandeld</span><span><i class="u"></i>nog niet</span>`
       : `<span><i class="${sport === "foot" ? "w" : "v"}"></i>${Wd.verb}</span><span><i class="u"></i>nog niet</span>`;
-    $("prov-map").innerHTML = `${provMap(D, prov, codes, cls)}
-      <div class="prov-map-foot"><p class="mini-leg">${legend}</p><p class="mini-tip">Klik op een gemeente voor details.</p></div>
-      <div id="prov-gem">${gemInfo(D, P.sel, firsts, acts)}</div>`;
+    $("prov-leg").innerHTML = legend;
+    $("prov-osm").checked = osm;
+    drawMap(D, codes, cls);
+    $("prov-gem").innerHTML = gemInfo(D, P.sel, firsts, acts) || `<p class="mini-tip">Klik op een gemeente voor details.</p>`;
 
     // voortgang + rangorde + medailles
     const ranks = [...provs.entries()].map(([p, cs]) => [p, cs.filter((c) => firsts.has(c)).length / cs.length]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -273,7 +297,10 @@
     P.prov = prov;
     window.FG.setView("prov");
   }
-  function show() { render(); }
+  function show() {
+    render();
+    if (M.map) setTimeout(() => { M.map.invalidateSize(); if (M.fit) M.map.fitBounds(M.fit, { padding: [12, 12] }); }, 60);
+  }
 
   document.addEventListener("click", (e) => {
     const p = e.target.closest("[data-prov]");
@@ -298,6 +325,11 @@
     if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-prov][role=button]")) { e.preventDefault(); open(e.target.dataset.prov); }
   });
   $("prov-pick").addEventListener("change", (e) => { P.prov = e.target.value; P.sel = ""; P.showAll = false; render(); });
+  $("prov-osm").addEventListener("change", (e) => {
+    osm = e.target.checked;
+    try { localStorage.setItem("fg-osm", osm ? "1" : "0"); } catch { /* geen opslag */ }
+    render();
+  });
   $("prov-back").addEventListener("click", () => window.FG.setView(P.back || "home"));
 
   window.FGProv = { open, show, render, checkParties };

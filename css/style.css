@@ -1048,3 +1048,11 @@ body.dragging .rc-drop { border-color: var(--blue); background: color-mix(in srg
   .prov-grid { grid-template-columns: minmax(0, 1fr); }
   .prov-nav select { max-width: 150px; }
 }
+.prov-leaf { height: 540px; border-radius: 12px; overflow: hidden; background: var(--surface-2); z-index: 0; }
+.prov-leaf.no-osm { background: var(--surface); }
+.prov-leaf path.pv-both { fill: url(#pv-both) !important; }
+#prov-map .pb-a { fill: var(--accent); }
+#prov-map .pb-b { fill: var(--walk); }
+.prov-tip { font: inherit; font-size: 13px; font-weight: 600; }
+.prov-map-foot .switch { font-size: 13px; }
+@media (max-width: 720px) { .prov-leaf { height: 380px; } }
