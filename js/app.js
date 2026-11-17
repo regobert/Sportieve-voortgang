@@ -524,7 +524,7 @@
     }
     const rows = Object.entries(per).sort((a, b) => b[1].visited / b[1].total - a[1].visited / a[1].total || a[0].localeCompare(b[0]));
     $("tab-prov").innerHTML = rows.map(([name, p]) => `
-      <div class="prov-row">
+      <div class="prov-row" role="button" tabindex="0" data-prov="${esc(name)}" title="Bekijk ${esc(name)}">
         <span class="name">${esc(name)}</span>
         <span class="num">${p.visited} / ${p.total}</span>
         <div class="bar"><div style="width:${(p.visited / p.total) * 100}%"></div></div>
@@ -691,7 +691,7 @@
     if (all.length) stats.push(stat("Laatste keer", fmtDate(all[all.length - 1].date)));
     const top = rides.slice(0, 4).map((a) => `<li><button type="button" class="gc-ride" data-ride="${a.id}"><span class="gc-rn">${esc(a.name || "Rit")}</span><span class="gc-rm">${fmtDate(a.date)} · ${nf.format(a.km)} km</span></button></li>`).join("");
     const more = rides.length > 4 ? `<button type="button" class="link" data-gem-rides="${esc(code)}">Alle ${nf.format(rides.length)} ${W().acts} door ${esc(f.naam)}</button>` : "";
-    return `<div class="gc-head"><div><p class="eyebrow">${esc(f.provincie)}</p><h2 id="gem-card-title">${esc(f.naam)}</h2></div>
+    return `<div class="gc-head"><div><p class="eyebrow"><button type="button" class="link prov-link" data-prov="${esc(f.provincie)}">${esc(f.provincie)} ›</button></p><h2 id="gem-card-title">${esc(f.naam)}</h2></div>
         <button type="button" class="gc-x" id="gem-card-x" aria-label="Sluiten">×</button></div>
       <div class="pills">${pill}</div>
       <dl class="gc-stats">${stats.join("")}</dl>
@@ -1359,7 +1359,7 @@
     });
   }
   function setView(view) {
-    if (!["home", "map", "rides", "km", "ride"].includes(view)) view = "home";
+    if (!["home", "map", "rides", "km", "ride", "prov"].includes(view)) view = "home";
     const v = view === "rides" ? "map" : view;
     const changed = v !== (curView === "rides" ? "map" : curView);
     curView = view;
@@ -1367,10 +1367,12 @@
     $("view-map").hidden = v !== "map";
     $("km-view").hidden = v !== "km";
     $("view-ride").hidden = v !== "ride";
+    $("view-prov").hidden = v !== "prov";
     syncNav();
     if (changed) document.querySelector(".views").scrollTop = 0;
     if (v === "km" && window.FGKm) window.FGKm.show();
     if (v === "home" && window.FGHome) window.FGHome.show();
+    if (v === "prov" && window.FGProv) window.FGProv.show();
     if (v === "map") setTimeout(() => map.invalidateSize(), 50);
     if (view === "rides") {
       document.querySelectorAll(".tab").forEach((o) => o.classList.toggle("active", o.dataset.tab === "rides"));
@@ -1509,6 +1511,13 @@
         status: S.status,
       };
     },
+    /** Eerste bezoek per gemeente in ronde i, voor fietsen, wandelen of alles */
+    firsts(i, kind) {
+      const t = kind === "foot" ? FOOT_SET : kind === "all" ? new Set([...S.types, ...FOOT_SET]) : S.types;
+      return Object.keys(S.features).length ? roundFirsts(i, t) : new Map();
+    },
+    sportTypes(kind) { return kind === "foot" ? FOOT_SET : kind === "all" ? new Set([...S.types, ...FOOT_SET]) : S.types; },
+    current: () => curView,
     medalsHtml() {
       const i = S.round || 0;
       return window.FGParty && Object.keys(S.features).length ? window.FGParty.medals(gemMilestones(i, roundFirsts(i, S.types)), fmtDate) : "";

@@ -126,6 +126,13 @@
         run: () => window.FG.focusGemeente(x.code),
       });
     }
+    // Provincies
+    const provs = [...new Set(Object.values(D.features).map((f) => f.provincie))].filter((p) => norm(p).includes(nq) || (nq.length >= 3 && p === "Fryslân" && "friesland".startsWith(nq))).sort();
+    for (const p of provs.slice(0, 3)) {
+      const codes = Object.keys(D.features).filter((c) => D.features[c].provincie === p);
+      const n = codes.filter((c) => D.firsts.has(c)).length;
+      out.push({ g: "Provincies", ico: IC.pin, icoCls: n === codes.length ? "v" : "u", t: p, s: `${rl}: ${n} van ${codes.length} gemeenten`, run: () => window.FGProv.open(p) });
+    }
     // Ritten op naam
     if (nq.length >= 2) rides.filter((r) => norm(r.name).includes(nq)).slice(0, 7).forEach((r) => out.push(rideItem(r, D, fresh)));
     // Acties

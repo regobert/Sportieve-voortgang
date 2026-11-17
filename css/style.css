@@ -973,3 +973,78 @@ body.dragging .rc-drop { border-color: var(--blue); background: color-mix(in srg
 .mini-leg i.both { background: repeating-linear-gradient(45deg, var(--accent) 0 3px, var(--walk) 3px 6px); }
 .mini-leg .faint { opacity: .55; }
 .mini-tip { margin: 0; text-align: center; font-size: 12px; color: var(--muted); }
+
+/* ============================================================ provinciepagina */
+.prov-view { display: flex; flex-direction: column; gap: 20px; }
+.prov-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.prov-nav .btn { white-space: nowrap; }
+.prov-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.prov-mapcard { grid-column: span 2; grid-row: span 2; }
+.prov-svg { width: 100%; height: auto; max-height: 560px; display: block; }
+.prov-svg path { stroke: var(--surface); stroke-width: 1.2; stroke-linejoin: round; }
+.prov-svg path.nb { fill: var(--unvisited); opacity: .45; stroke-width: .8; }
+.prov-svg path[data-pcode] { cursor: pointer; transition: opacity .15s; }
+.prov-svg path[data-pcode]:hover { opacity: .8; }
+.prov-svg path.sel { stroke: var(--ink); stroke-width: 2.5; }
+.prov-svg .v { fill: var(--accent); }
+.prov-svg .w { fill: var(--walk); }
+.prov-svg .u { fill: var(--unvisited); }
+.prov-svg .both { fill: url(#pv-both); }
+.prov-svg .pb-a { fill: var(--accent); }
+.prov-svg .pb-b { fill: var(--walk); }
+.prov-map-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.prov-map-foot .mini-leg, .prov-map-foot .mini-tip { justify-content: flex-start; text-align: left; }
+.mini-leg i.u { background: var(--unvisited); }
+.prov-gem { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+.prov-gem div { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.prov-gem span { color: var(--muted); font-size: 13px; }
+.prov-big { margin: 0; font-family: var(--display); font-size: 44px; font-weight: 800; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.prov-big small { font-family: var(--sans, inherit); font-size: 15px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; }
+.pbar { height: 10px; border-radius: 999px; background: var(--unvisited); overflow: hidden; }
+.pbar span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+#view-prov[data-sport="foot"] .pbar span { background: var(--walk); }
+#view-prov[data-sport="foot"] .eyebrow.acc { color: var(--walk-ink); }
+#view-prov[data-sport="foot"] .medal.got .mdisc { background: radial-gradient(circle at 35% 30%, #8fe0b8, var(--walk) 55%, var(--walk-ink)); box-shadow: 0 1px 3px rgba(31,110,72,.35); }
+#prov-score .sub { margin: 0; }
+.medals.two { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.pmed .mdisc { width: 58px; height: 58px; font-size: 14px; }
+.pmed .mlab { font-weight: 700; color: var(--ink); font-size: 12.5px; }
+.ftiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ftile { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.ftile:hover:not([disabled]) { border-color: var(--line-2); background: var(--surface-2); }
+.ftile[disabled] { cursor: default; opacity: 1; }
+.ftile .fk { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.ftile .fv { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ftile .fs { font-size: 12px; color: var(--muted); }
+.todo-l { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.todo-i { width: 100%; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 9px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.todo-i:hover { background: var(--surface-2); }
+.todo-i .tn { font-weight: 600; font-size: 14px; }
+.todo-i .td { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.prov-done { margin: 0; font-weight: 600; color: var(--good); }
+.prov-tl { width: 100%; height: auto; display: block; }
+.prov-tl .tg { stroke: var(--line); stroke-width: 1; }
+.prov-tl .tg.dash { stroke-dasharray: 4 4; }
+.prov-tl .tt { fill: var(--muted); font-size: 11px; }
+.prov-tl .tl { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
+.prov-tl .ta { fill: var(--accent-soft); opacity: .7; }
+.prov-tl .tm { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 2 4; opacity: .6; }
+.prov-tl .tc { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
+#view-prov[data-sport="foot"] .prov-tl .tl, #view-prov[data-sport="foot"] .prov-tl .tc, #view-prov[data-sport="foot"] .prov-tl .tm { stroke: var(--walk); }
+#view-prov[data-sport="foot"] .prov-tl .ta { fill: var(--walk-soft); }
+.tl-list { list-style: none; margin: 0; padding: 0; display: flex; gap: 24px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); }
+.tl-k { font-weight: 700; color: var(--ink); margin-right: 6px; }
+.plist li[data-prov], .prov-row[data-prov] { cursor: pointer; border-radius: 8px; }
+.plist li[data-prov]:hover .pn, .prov-row[data-prov]:hover .name { text-decoration: underline; }
+.plist li[data-prov]:focus-visible, .prov-row[data-prov]:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.pmedal { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 6px; border-radius: 50%; background: var(--good); color: #fff; font-size: 10px; font-weight: 800; vertical-align: 1px; }
+.prov-link { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; padding: 0; }
+@media (max-width: 1100px) {
+  .prov-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .prov-mapcard { grid-column: 1 / -1; grid-row: auto; }
+  #prov-time { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .prov-grid { grid-template-columns: minmax(0, 1fr); }
+  .prov-nav select { max-width: 150px; }
+}

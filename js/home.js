@@ -454,7 +454,7 @@
       const per = perProvince(D, viewFor(D, "bike").firsts, viewFor(D, "foot").firsts);
       const rows = Object.entries(per).sort((a, b) => b[1].v / b[1].t - a[1].v / a[1].t || a[0].localeCompare(b[0]));
       el.innerHTML = `<div><h2>Per provincie</h2><p class="sub">${rn} · <span class="dot" style="background:var(--accent)"></span> gefietst <span class="dot" style="background:var(--walk)"></span> gewandeld</p></div>
-        <ul class="plist two">${rows.map(([p, c]) => `<li><span class="pn">${esc(p)}</span><span class="pc">${c.v} · ${c.w} / ${c.t}</span><span class="pb"><span style="width:${((c.v / c.t) * 100).toFixed(0)}%"></span></span><span class="pb w"><span style="width:${((c.w / c.t) * 100).toFixed(0)}%"></span></span></li>`).join("")}</ul>`;
+        <ul class="plist two">${rows.map(([p, c]) => `<li data-prov="${esc(p)}" role="button" tabindex="0" title="Bekijk ${esc(p)}"><span class="pn">${esc(p)}</span><span class="pc">${c.v} · ${c.w} / ${c.t}</span><span class="pb"><span style="width:${((c.v / c.t) * 100).toFixed(0)}%"></span></span><span class="pb w"><span style="width:${((c.w / c.t) * 100).toFixed(0)}%"></span></span></li>`).join("")}</ul>`;
       return;
     }
     const V = viewFor(D, H.mode);
@@ -462,7 +462,7 @@
     const per = perProvince(D, V.firsts);
     const rows = Object.entries(per).sort((a, b) => b[1].v / b[1].t - a[1].v / a[1].t || a[0].localeCompare(b[0]));
     el.innerHTML = `<div><h2>Per provincie</h2><p class="sub">${rn}${V.kind === "foot" ? " · gewandeld" : ""}</p></div>
-      <ul class="plist">${rows.map(([p, c]) => `<li class="${c.v === c.t ? "full" : ""}"><span class="pn">${esc(p)}</span><span class="pc">${c.v}/${c.t}</span><span class="pb"><span style="width:${((c.v / c.t) * 100).toFixed(0)}%"></span></span></li>`).join("")}</ul>`;
+      <ul class="plist">${rows.map(([p, c]) => `<li class="${c.v === c.t ? "full" : ""}" data-prov="${esc(p)}" role="button" tabindex="0" title="Bekijk ${esc(p)}"><span class="pn">${c.v === c.t ? `<span class="pmedal" aria-label="compleet">✓</span>` : ""}${esc(p)}</span><span class="pc">${c.v}/${c.t}</span><span class="pb"><span style="width:${((c.v / c.t) * 100).toFixed(0)}%"></span></span></li>`).join("")}</ul>`;
   }
 
   // ------------------------------------------------------------ geheel
@@ -480,6 +480,7 @@
     try { H.foot = (await (await fetch("/api/foot")).json()).activities || []; } catch { H.foot = []; }
     if (seq !== H.seq) return;
     checkFootParties(D);
+    if (window.FGProv) { window.FGProv.checkParties(D); if (!$("view-prov").hidden) window.FGProv.render(); }
     renderStrava(D);
     renderHero(D);
     renderNext(D);
