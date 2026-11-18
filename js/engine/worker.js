@@ -58,6 +58,8 @@ async function importArchive(file, known, bikes) {
       gear: col.gear < r.length ? r[col.gear].trim() : "",
       cdist: F.parseCsvDistance(r, col.dist),
       cdate: col.date < r.length ? F.parseCsvDate(r[col.date]) : null,
+      elapsed: F.parseDuration(r, col.elapsed),
+      moving: F.parseDuration(r, col.moving),
     });
   }
   await getGeo();
@@ -82,7 +84,7 @@ async function importArchive(file, known, bikes) {
           try { fsport = F.readTrack(await zip.read(member), member, true).sport || ""; } catch { /* onleesbaar */ }
         }
       }
-      batch.push({ op: "update", id: t.id, gear: t.gear, csv_type: t.st, file_sport: fsport, name: t.name, cdist: t.cdist || 0 });
+      batch.push({ op: "update", id: t.id, gear: t.gear, csv_type: t.st, file_sport: fsport, name: t.name, cdist: t.cdist || 0, elapsed: t.elapsed, moving: t.moving });
       skipped++;
     } else {
       let pts = [], t0 = null, fsport = null;
@@ -108,7 +110,7 @@ async function importArchive(file, known, bikes) {
           rec: {
             id: t.id, name: t.name, sport_type: sport,
             start_date: t0 ? F.utcISO(t0) : "", start_local: t0 ? F.localISO(t0) : "",
-            distance: dist, moving_time: 0, trainer: indoor ? 1 : 0,
+            distance: dist, moving_time: t.moving || 0, elapsed_time: t.elapsed || 0, trainer: indoor ? 1 : 0,
             polyline: summary, track: track.length ? F.encodePolyline(track) : null,
             no_gps: track.length ? 0 : 1, source: "archive", gear: t.gear, csv_type: t.st, file_sport: fs, g,
           },

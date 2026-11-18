@@ -380,6 +380,15 @@
     return rows;
   };
 
+  /** Tijdsduur uit de csv: seconden ("3600" of "3600.0") of uu:mm:ss */
+  FG.parseDuration = function (r, i) {
+    if (i < 0 || i >= r.length) return 0;
+    const v = String(r[i]).trim();
+    if (!v) return 0;
+    if (v.includes(":")) return v.split(":").reduce((s, x) => s * 60 + (parseFloat(x) || 0), 0);
+    const n = parseFloat(v.replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+  };
   FG.csvColumns = function (header) {
     const h = header.map((c) => c.trim().toLowerCase());
     const find = (keys, def) => { const i = h.findIndex((c) => keys.some((k) => c.includes(k))); return i >= 0 ? i : def; };
@@ -390,6 +399,8 @@
       file: find(["filename", "bestandsnaam", "bestand"], 12),
       date: find(["activity date", "datum"], 1),
       gear: find(["activity gear", "uitrusting", "gear"], 11),
+      elapsed: find(["elapsed time", "verstreken tijd", "totale tijd"], -1),
+      moving: find(["moving time", "bewegingstijd", "beweegtijd", "tijd in beweging"], -1),
       dist: h.map((c, i) => (c === "distance" || c === "afstand" || c.startsWith("distance") || c.startsWith("afstand") ? i : -1)).filter((i) => i >= 0),
     };
   };

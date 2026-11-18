@@ -279,6 +279,54 @@
     renderBars(M);
     renderCum(M);
     renderMonth(M);
+    renderWeather(M);
+  }
+
+  // ---------------------------------------------------------- weerrecords
+  function renderWeather(M) {
+    const el = $("km-wx");
+    const all = !!K.wxAll;
+    const pool = (all ? K.rides.filter((r) => inMode(M.mode, r)) : M.rides).filter((r) => !r.indoor);
+    const withWx = pool.filter((r) => r.wx);
+    const what = M.mode === "foot" ? "wandelingen" : M.mode === "total" ? "activiteiten" : "ritten";
+    const toggle = `<div class="seg small" role="group" aria-label="Periode"><button type="button" class="seg-btn" data-wxall="0" aria-pressed="${!all}">${M.y}</button><button type="button" class="seg-btn" data-wxall="1" aria-pressed="${all}">Alle jaren</button></div>`;
+    const head = `<div class="kcard-head"><h2>Weer</h2>${toggle}</div>`;
+    if (!withWx.length) {
+      el.innerHTML = `${head}<p class="hint">Nog geen weergegevens${pool.length ? ` bij je ${what}` : ""}. Zet "Weer bij je activiteiten" aan in Instellingen; het weer wordt dan op de achtergrond opgehaald.</p>`;
+      return;
+    }
+    const X = window.FGWx;
+    const pick = (key, dir, min = 0) => withWx.filter((r) => r.wx[key] != null && r.km >= min).sort((a, b) => dir * (b.wx[key] - a.wx[key]))[0];
+    const recs = [
+      ["Koudste", pick("t", -1), (w) => `${nf1.format(w.t)} °C`, X.icon(71, 20)],
+      ["Warmste", pick("t", 1), (w) => `${nf1.format(w.t)} °C`, X.icon(0, 20)],
+      ["Natste", pick("p", 1), (w) => `${nf1.format(w.p)} mm`, X.icon(63, 20)],
+      ["Meeste wind", pick("ws", 1), (w) => `${w.ws} km/u · ${X.bft(w.ws)} Bft`, X.arrow(225, 20)],
+      ["Hardste windstoot", pick("gu", 1), (w) => `${w.gu} km/u`, X.arrow(270, 20)],
+      ["Meeste tegenwind", pick("hw", 1, 10), (w) => `${w.hw}% van de route`, X.arrow(0, 20)],
+    ].filter((x) => x[1] && !(x[0] === "Natste" && !(x[1].wx.p > 0)));
+    const recHtml = recs.map(([k, r, v, ic]) => `<button type="button" class="wx-rec" data-ride="${r.id}">
+        <span class="wr-ic">${ic}</span><span class="wr-t"><span class="wr-k">${k}</span><span class="wr-v">${v(r.wx)}</span>
+        <span class="wr-n">${esc(r.name || "Activiteit")} · ${fmtDate(r.date)} · ${nf.format(r.km)} km</span></span></button>`).join("");
+    // kilometers per temperatuur
+    const bands = [["onder 0°", -99, 0], ["0–5°", 0, 5], ["5–10°", 5, 10], ["10–15°", 10, 15], ["15–20°", 15, 20], ["20–25°", 20, 25], ["25° en warmer", 25, 99]];
+    const kmB = bands.map(([, lo, hi]) => withWx.filter((r) => r.wx.t >= lo && r.wx.t < hi).reduce((s, r) => s + r.km, 0));
+    const maxB = Math.max(...kmB, 1);
+    const totKm = withWx.reduce((s, r) => s + r.km, 0);
+    const wetKm = withWx.filter((r) => r.wx.p >= 0.5).reduce((s, r) => s + r.km, 0);
+    const avgT = withWx.reduce((s, r) => s + r.wx.t * r.km, 0) / Math.max(totKm, 1);
+    const headKm = withWx.filter((r) => r.wx.hw != null).reduce((s, r) => s + (r.km * r.wx.hw) / 100, 0);
+    const tailKm = withWx.filter((r) => r.wx.tw != null).reduce((s, r) => s + (r.km * r.wx.tw) / 100, 0);
+    el.innerHTML = `${head}
+      <div class="wx-grid">
+        <div class="wx-recs">${recHtml}</div>
+        <div class="wx-dist">
+          <p class="wx-sum"><b>${nf1.format(avgT)} °C</b> gemiddeld · <b>${Math.round((wetKm / Math.max(totKm, 1)) * 100)}%</b> van je kilometers nat · <b>${nf.format(Math.round(headKm))} km</b> tegenwind tegen <b>${nf.format(Math.round(tailKm))} km</b> meewind</p>
+          <p class="wx-al-h">Kilometers per temperatuur</p>
+          <div class="wx-bands">${bands.map(([l], i) => `<div class="wb"><span class="wb-l">${l}</span><span class="wb-b"><span style="width:${((kmB[i] / maxB) * 100).toFixed(1)}%"></span></span><span class="wb-v">${nf.format(Math.round(kmB[i]))} km</span></div>`).join("")}</div>
+          <p class="hint">Weer bekend bij ${nf.format(withWx.length)} van ${nf.format(pool.length)} ${what}${all ? "" : ` in ${M.y}`}. Weer: Open-Meteo, rond het startpunt.</p>
+        </div>
+      </div>`;
   }
 
   function status(diff, label) {
@@ -1152,6 +1200,13 @@
     if (window.FG) window.FG.setView("km");
   }
   window.addEventListener("fg-theme", () => { if (K.visible && !$("km-view").hidden) render(); });
+  $("km-wx").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-wxall]");
+    if (t) { K.wxAll = t.dataset.wxall === "1"; render(); return; }
+    const r = e.target.closest("[data-ride]");
+    if (r && window.FG) window.FG.openRide(Number(r.dataset.ride));
+  });
+
   /** Jaardoel opslaan (ook vanaf het overzicht); kind = "bike" of "foot" */
   async function setGoal(kind, y, km) {
     const r = await fetch("/api/goals", {

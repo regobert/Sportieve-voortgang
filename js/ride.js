@@ -128,6 +128,7 @@
       t.push(tile("Gemiddeld", nf1.format(data.km / (data.moving_time / 3600)), "km/u"));
     }
     $("ride-tiles").innerHTML = t.join("");
+    renderWx();
 
     // gemeenten in volgorde
     const F = ctx.features;
@@ -178,6 +179,34 @@
   }
 
   // ------------------------------------------------------------ openen
+  // Weer tijdens de rit (Open-Meteo, alleen als je dat hebt aangezet)
+  function renderWx() {
+    const el = $("ride-wx");
+    const d = R.data;
+    const foot = ["Walk", "Hike", "Run", "TrailRun"].includes(d.type);
+    if (!d.wx_possible) { el.hidden = true; return; }
+    el.hidden = false;
+    const head = `<h2>Weer tijdens de ${foot ? "wandeling" : "rit"}</h2>`;
+    if (d.wx) { el.innerHTML = head + window.FGWx.card(d.wx, { foot }); return; }
+    const recent = (Date.now() - new Date(d.date + "T12:00:00").getTime()) / 864e5 < 6;
+    if (!d.wx_enabled) {
+      el.innerHTML = `${head}<div class="wx-optin"><p>Wil je bij je activiteiten zien wat voor weer het was: temperatuur, wind (ook tegen- of meewind langs je route), regen en bewolking?
+        De app vraagt dat op bij <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>. Daarvoor gaan per activiteit alleen de datum en een plek, afgerond op ongeveer 10 km, naar Open-Meteo. Je kunt dit altijd weer uitzetten in Instellingen.</p>
+        <button type="button" class="btn primary" id="ride-wx-on">Weer aanzetten</button></div>`;
+      return;
+    }
+    el.innerHTML = `${head}<p class="sub">${recent ? "Het weer van de laatste dagen is nog niet beschikbaar; Open-Meteo loopt ongeveer vijf dagen achter. Het verschijnt vanzelf." : "Het weer wordt opgehaald…"}</p>`;
+  }
+  async function reloadWx() {
+    if ($("view-ride").hidden || !R.data || R.data.wx) return;
+    try {
+      const r = await fetch(`/api/activity/${R.id}`);
+      const d = await r.json();
+      if (r.ok && d.id === R.data.id) { R.data.wx = d.wx; R.data.wx_enabled = d.wx_enabled; renderWx(); }
+    } catch { /* later opnieuw */ }
+  }
+  window.addEventListener("fg-weather", reloadWx);
+
   async function open(id) {
     if (!window.FG) return;
     const cur = window.FG.view();
@@ -212,6 +241,11 @@
     $("ride-back").addEventListener("click", () => window.FG.setView(R.back || "rides"));
     $("view-ride").addEventListener("click", (e) => {
       if (e.target.closest("#ride-onmap")) { window.FG.showRide(R.id); return; }
+      if (e.target.closest("#ride-wx-on")) {
+        fetch("/api/weather", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: true }) })
+          .then(() => { R.data.wx_enabled = true; renderWx(); if (window.FG.syncWeather) window.FG.syncWeather(); });
+        return;
+      }
       const g = e.target.closest("[data-code]");
       if (g) window.FG.focusGemeente(g.dataset.code);
     });

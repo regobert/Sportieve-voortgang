@@ -8,6 +8,11 @@ bestand wordt niet geüpload. Je ritten en instellingen worden opgeslagen in de
 opslag van je browser (IndexedDB) op het apparaat dat je gebruikt. Er is geen
 server en geen database met gegevens van gebruikers.
 
+**Weer (optioneel).** Zet je bij *Instellingen › Weer* het weer aan, dan vraagt de app
+per activiteit het weer op bij [Open-Meteo](https://open-meteo.com). Daarvoor gaan alleen
+de datum en een plek, afgerond op 0,1 graad (ongeveer 10 km), naar Open-Meteo. Je naam,
+route en Strava-gegevens blijven in je browser. Standaard staat dit uit.
+
 ## Gebruiken
 
 1. Vraag op Strava je archief aan: *Mijn account › Account downloaden › Archief aanvragen*.
@@ -34,6 +39,7 @@ Wis je je browsergegevens, dan zijn je ritten uit de app weg. Maak dus af en toe
 - Gemeentegrenzen: Kadaster / PDOK – Bestuurlijke Gebieden (CC BY 4.0)
 - Kaartvormen: CBS / PDOK – Gebiedsindelingen (CC BY 4.0); dijken en dammen: © OpenStreetMap-bijdragers (ODbL)
 - Achtergrondkaart: © OpenStreetMap-bijdragers
+- Weer: [Open-Meteo](https://open-meteo.com) (CC BY 4.0), historische weerdata o.a. ERA5 (Copernicus)
 - [Leaflet](https://leafletjs.com) (BSD-2), [fflate](https://github.com/101arrowz/fflate) (MIT),
   Inter en Bricolage Grotesque (SIL Open Font License)
 

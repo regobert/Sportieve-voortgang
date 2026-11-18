@@ -591,7 +591,7 @@
       return `<div class="ride${S.rideSel === a.id ? " sel" : ""}" data-ride="${a.id}">
         <span class="rn" title="${esc(a.name)}">${esc(a.name || (FOOT_SET.has(a.type) ? "Wandeling" : "Rit"))}</span>
         <span class="rk">${nf.format(a.km)} km</span>
-        <span class="rm"><span class="tbadge${FOOT_SET.has(a.type) ? " walk" : ""}">${esc(TYPE_SHORT[a.type] || a.type)}</span>${fmtDate(a.date)}${a.bike ? " · " + esc(a.bike) : ""}</span>
+        <span class="rm"><span class="tbadge${FOOT_SET.has(a.type) ? " walk" : ""}">${esc(TYPE_SHORT[a.type] || a.type)}</span>${fmtDate(a.date)}${a.bike ? " · " + esc(a.bike) : ""}${a.wx && window.FGWx ? window.FGWx.chip(a.wx) : ""}</span>
         <span class="rg">${n ? `${n} gem.` : "buiten NL"}${f ? ` · <b>${f} nieuw</b>` : ""}</span>
       </div>`;
     }).join("") + (list.length > shown.length ? `<button class="btn small more" id="rides-more">Toon meer (${nf.format(list.length - shown.length)})</button>` : "")
@@ -1491,6 +1491,7 @@
     },
     openRide(id) { if (window.FGRide) window.FGRide.open(id); },
     stravaWindow, stravaUrl: STRAVA_URL,
+    syncWeather: () => { if ($("dlg-settings").open) syncWeather(); },
     async stravaRequested(on) {
       await fetch("/api/strava-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ at: on ? 1 : null }) });
       await pollStatus();
@@ -1692,7 +1693,29 @@
     renderRoundSettings();
     if (window.FGParty) window.FGParty.renderSettings($("set-party"), fmtDate);
     loadBikes();
+    syncWeather();
     dlg.showModal();
+  });
+  // Weer (Open-Meteo): aan/uit en voortgang
+  async function syncWeather() {
+    const w = await (await api("/api/weather")).json();
+    $("set-wx").checked = w.enabled;
+    let t = "";
+    if (w.running) t = `Weer ophalen: ${nf.format(w.done)} van ${nf.format(w.total)}…`;
+    else if (w.error) t = w.error;
+    else if (w.enabled) t = `Weer bekend bij ${nf.format(w.have)} activiteiten${w.missing ? `; ${nf.format(w.missing)} nog op te halen` : ""}.`;
+    $("set-wx-status").textContent = t;
+    if (w.running && dlg.open) setTimeout(syncWeather, 1500);
+  }
+  $("set-wx").addEventListener("change", async (e) => {
+    await api("/api/weather", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: e.target.checked }) });
+    setTimeout(syncWeather, 300);
+  });
+  // Nieuw weer binnen: lijsten en statistieken bijwerken (hooguit eens per paar seconden)
+  let wxTimer = null;
+  window.addEventListener("fg-weather", () => {
+    clearTimeout(wxTimer);
+    wxTimer = setTimeout(() => { loadData(); }, 800);
   });
   async function loadBikes() {
     const list = await (await api("/api/bikes")).json();

@@ -2,7 +2,8 @@
  *
  * De schermen vragen gegevens op via adressen als /api/data. Op de website is er
  * geen server: dit bestand vangt die verzoeken op en beantwoordt ze met gegevens
- * uit de opslag van je browser (IndexedDB). Er gaat niets naar het internet.
+ * uit de opslag van je browser (IndexedDB). Er gaat niets naar het internet,
+ * behalve (als je dat aanzet) datum en een afgeronde plek per rit naar Open-Meteo voor het weer.
  */
 /* global FGCore, fflate */
 (function () {
@@ -67,7 +68,7 @@
   }
   function saveCfg() { return tx(["kv"], "readwrite", (t) => { t.objectStore("kv").put(E.cfg, "config"); t.objectStore("kv").put(E.meta, "meta"); }); }
 
-  E.ready = loadAll().then(() => { reclassify(); }).catch((e) => {
+  E.ready = loadAll().then(() => { reclassify(); setTimeout(() => E.weatherRun && E.weatherRun(), 4000); }).catch((e) => {
     console.error(e);
     E.storageError = "Je browser staat geen opslag toe (bijvoorbeeld in een privévenster). Je gegevens kunnen niet worden bewaard.";
   });
@@ -153,6 +154,8 @@
         if (!a) continue;
         a.gear = it.gear; a.csv_type = it.csv_type; a.file_sport = it.file_sport;
         if (a.source === "archive") { a.name = it.name; if (it.cdist > 0) a.distance = it.cdist; }
+        if (it.elapsed > 0) a.elapsed_time = it.elapsed;
+        if (it.moving > 0 && !a.moving_time) a.moving_time = it.moving;
         changed.push(a);
       } else {
         const r = it.rec, old = E.acts.get(r.id);
@@ -163,7 +166,9 @@
           if (old.distance > 0) r.distance = old.distance;
           r.name = old.name || r.name;
           r.source = old.source || r.source;
-          r.moving_time = old.moving_time || 0;
+          r.moving_time = old.moving_time || r.moving_time || 0;
+          r.elapsed_time = old.elapsed_time || r.elapsed_time || 0;
+          if (old.wx) r.wx = old.wx;
         }
         E.acts.set(r.id, r);
         changed.push(r);
@@ -193,6 +198,7 @@
       if (!res.stopped && res.skipped) msg += `, ${res.skipped} bijgewerkt`;
       E.imp.message = res.stopped ? msg : msg + ".";
       E.persist();
+      setTimeout(() => E.weatherRun(), 1500);
     } catch (e) {
       E.imp.error = e.message || "Inlezen mislukt.";
     } finally {
@@ -207,6 +213,138 @@
   E.persist = async function () {
     try { if (navigator.storage && navigator.storage.persist) return await navigator.storage.persist(); } catch { /* niet ondersteund */ }
     return false;
+  };
+
+  // ------------------------------------------------------------ weer (Open-Meteo)
+  // Alleen als je het aanzet. Per rit gaan de datum en een plek, afgerond op 0,1 graad
+  // (ongeveer 10 km), naar Open-Meteo. Ritten bij elkaar in de buurt en in hetzelfde jaar
+  // gaan in één verzoek. De uitkomst wordt bij de rit bewaard (en zit dus in je back-up).
+  const WX = { running: false, done: 0, total: 0, error: null, finished_at: null, stop: false };
+  E.wx = WX;
+  const WX_VARS = "temperature_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m";
+  const DEG = Math.PI / 180;
+  function wxStart(a) {
+    const pts = F.decodePolyline(a.track || a.polyline || "");
+    return pts.length ? pts : null;
+  }
+  function wxDuration(a) {
+    const s = a.elapsed_time || a.moving_time || 0;
+    if (s > 0) return Math.min(s, 36 * 3600);
+    const km = (a.distance || 0) / 1000;
+    return Math.max(1800, Math.round((km / (FOOT[a.sport_type] ? 5 : 22)) * 3600)); // schatting
+  }
+  function wxCandidate(a, maxDate) {
+    return !a.wx && !a.trainer && a.sport_type !== "VirtualRide" && a.start_date && (a.track || a.polyline) && a.start_date.slice(0, 10) <= maxDate;
+  }
+  function wxMissing() {
+    const maxDate = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10); // het archief loopt ~5 dagen achter
+    let n = 0;
+    for (const a of E.acts.values()) if (wxCandidate(a, maxDate)) n++;
+    return n;
+  }
+  function bearing(p, q) {
+    const y = Math.sin((q[1] - p[1]) * DEG) * Math.cos(q[0] * DEG);
+    const x = Math.cos(p[0] * DEG) * Math.sin(q[0] * DEG) - Math.sin(p[0] * DEG) * Math.cos(q[0] * DEG) * Math.cos((q[1] - p[1]) * DEG);
+    return (Math.atan2(y, x) / DEG + 360) % 360;
+  }
+  /** Weer tijdens de rit uit de uurwaarden: gemiddelden, uitersten, en hoeveel van de route tegen/mee/zijwind */
+  function wxSummary(a, pts, H, idx) {
+    const t0 = Date.parse(a.start_date);
+    const dur = wxDuration(a);
+    const hours = [];
+    for (let t = Math.floor(t0 / 3600e3) * 3600e3; t <= t0 + dur * 1000; t += 3600e3) {
+      const i = idx.get(new Date(t).toISOString().slice(0, 13));
+      if (i !== undefined && H.temperature_2m[i] != null) hours.push(i);
+    }
+    if (!hours.length) return null;
+    const avg = (k) => hours.reduce((s, i) => s + (H[k][i] || 0), 0) / hours.length;
+    let wx = 0, wy = 0;
+    for (const i of hours) { const sp = H.wind_speed_10m[i] || 0, d = (H.wind_direction_10m[i] || 0) * DEG; wx += sp * Math.sin(d); wy += sp * Math.cos(d); }
+    const wd = Math.round((Math.atan2(wx, wy) / DEG + 360) % 360);
+    const p = hours.reduce((s, i) => s + (H.precipitation[i] || 0), 0);
+    // weertype: het meest voorkomende, maar met (echte) neerslag telt het natste uur
+    const codes = hours.map((i) => H.weather_code[i] || 0);
+    const freq = new Map();
+    codes.forEach((c) => freq.set(c, (freq.get(c) || 0) + 1));
+    let code = [...freq.entries()].sort((x, y) => y[1] - x[1] || y[0] - x[0])[0][0];
+    if (p >= 0.5) code = Math.max(...codes);
+    // tegen-, zij- en meewind langs de route (wind komt UIT richting wd)
+    let head = 0, side = 0, tail = 0;
+    const tr = pts.length > 400 ? F.simplify(pts, 0.0002) : pts;
+    for (let k = 1; k < tr.length; k++) {
+      const len = F.lengthM([tr[k - 1], tr[k]]);
+      if (!len) continue;
+      const c = Math.cos((bearing(tr[k - 1], tr[k]) - wd) * DEG);
+      if (c > 0.5) head += len; else if (c < -0.5) tail += len; else side += len;
+    }
+    const tot = head + side + tail;
+    const r1 = (v) => Math.round(v * 10) / 10;
+    return {
+      t: r1(avg("temperature_2m")),
+      lo: r1(Math.min(...hours.map((i) => H.temperature_2m[i]))),
+      hi: r1(Math.max(...hours.map((i) => H.temperature_2m[i]))),
+      fl: r1(avg("apparent_temperature")),
+      p: r1(p),
+      ws: Math.round(avg("wind_speed_10m")),
+      wd,
+      gu: Math.round(Math.max(...hours.map((i) => H.wind_gusts_10m[i] || 0))),
+      cc: Math.round(avg("cloud_cover")),
+      c: code,
+      hw: tot > 500 ? Math.round((head / tot) * 100) : null,
+      tw: tot > 500 ? Math.round((tail / tot) * 100) : null,
+      est: !(a.elapsed_time || a.moving_time) ? 1 : 0,
+    };
+  }
+  E.weatherRun = async function () {
+    await E.ready;
+    if (WX.running || !E.cfg.weather) return;
+    const maxDate = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
+    const groups = new Map();
+    for (const a of E.acts.values()) {
+      if (!wxCandidate(a, maxDate)) continue;
+      const pts = wxStart(a);
+      if (!pts) continue;
+      const lat = Math.round(pts[0][0] * 10) / 10, lon = Math.round(pts[0][1] * 10) / 10;
+      const key = `${lat.toFixed(1)},${lon.toFixed(1)},${a.start_date.slice(0, 4)}`;
+      if (!groups.has(key)) groups.set(key, { lat, lon, acts: [] });
+      groups.get(key).acts.push([a, pts]);
+    }
+    WX.total = [...groups.values()].reduce((s, g) => s + g.acts.length, 0);
+    WX.done = 0; WX.error = null; WX.stop = false;
+    if (!WX.total) { WX.finished_at = Date.now(); return; }
+    WX.running = true;
+    let since = 0;
+    try {
+      for (const g of groups.values()) {
+        if (WX.stop || !E.cfg.weather) break;
+        const dates = g.acts.map(([a]) => a.start_date.slice(0, 10)).sort();
+        const end = new Date(Date.parse(dates[dates.length - 1]) + 2 * 864e5).toISOString().slice(0, 10);
+        const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${g.lat}&longitude=${g.lon}&start_date=${dates[0]}&end_date=${end < maxDate ? end : maxDate}&hourly=${WX_VARS}&timezone=GMT&wind_speed_unit=kmh`;
+        const r = await fetchReal(url);
+        if (r.status === 429) throw new Error("Open-Meteo vraagt om even te wachten. Later gaat het verder.");
+        if (!r.ok) throw new Error(`Open-Meteo gaf een fout (${r.status}).`);
+        const d = await r.json();
+        const H = d.hourly || {};
+        const idx = new Map((H.time || []).map((t, i) => [t.slice(0, 13), i]));
+        const changed = [];
+        for (const [a, pts] of g.acts) {
+          const w = wxSummary(a, pts, H, idx);
+          a.wx = w || { none: 1 };
+          changed.push(a);
+        }
+        await saveActs(changed);
+        WX.done += g.acts.length;
+        since += g.acts.length;
+        if (since >= 100) { since = 0; window.dispatchEvent(new Event("fg-weather")); }
+        await new Promise((res) => setTimeout(res, 250));
+      }
+    } catch (e) {
+      WX.error = e.message || "Weer ophalen mislukt.";
+    } finally {
+      WX.running = false;
+      WX.finished_at = Date.now();
+      window.dispatchEvent(new Event("fg-weather"));
+    }
   };
 
   // ------------------------------------------------------------ back-up
@@ -366,7 +504,9 @@
     return json({
       id: a.id, name: a.name, type: a.sport_type, date: (a.start_local || "").slice(0, 10), time: (a.start_local || "").slice(11, 16),
       km: Math.round((a.distance || 0) / 100) / 10, moving_time: a.moving_time || 0, indoor: !!a.trainer, gear: a.gear || "",
-      visits, polyline: line,
+      visits, polyline: line, elapsed_time: a.elapsed_time || 0,
+      wx: a.wx && !a.wx.none ? a.wx : null, wx_enabled: !!E.cfg.weather,
+      wx_possible: !a.trainer && a.sport_type !== "VirtualRide" && !!(a.track || a.polyline),
     });
   };
   R["GET /api/gpx/:id"] = (b, init, id) => {
@@ -401,7 +541,7 @@
       out.push({
         id: a.id, name: a.name, type: t, date: a.start_local.slice(0, 10), km: Math.round((a.distance || 0) / 100) / 10,
         cat: foot ? "foot" : "bike", sub: foot ? (t === "Run" || t === "TrailRun" ? "run" : "walk") : indoor ? "ind" : "out",
-        indoor: indoor ? 1 : 0, map: a.g && a.g.length ? 1 : 0,
+        indoor: indoor ? 1 : 0, map: a.g && a.g.length ? 1 : 0, wx: a.wx && !a.wx.none ? a.wx : null,
       });
     }
     return json({ rides: out, goals: E.cfg.goals || {}, goals_foot: E.cfg.goals_foot || {} });
@@ -410,6 +550,15 @@
     const add = (b.add || []).filter((k) => typeof k === "string" || typeof k === "number").map((k) => String(k).slice(0, 80));
     E.cfg.seen = [...new Set([...(E.cfg.seen || []), ...add])].slice(-2000);
     return saveCfg().then(() => json({ ok: true }));
+  };
+  R["GET /api/weather"] = () => json({
+    enabled: !!E.cfg.weather, running: WX.running, done: WX.done, total: WX.total, error: WX.error,
+    missing: wxMissing(), have: [...E.acts.values()].filter((a) => a.wx && !a.wx.none).length,
+  });
+  R["POST /api/weather"] = async (b) => {
+    if (b && typeof b.enabled === "boolean") { E.cfg.weather = b.enabled; await saveCfg(); if (!b.enabled) WX.stop = true; }
+    if (E.cfg.weather) E.weatherRun();
+    return R["GET /api/weather"]();
   };
   // "Ik heb bij Strava een nieuw archief aangevraagd" (of dat weer wissen)
   R["POST /api/strava-request"] = async (b) => {
@@ -433,6 +582,7 @@
     const acts = sorted().filter((a) => !a.trainer && types.has(a.sport_type)).map((a) => ({
       id: a.id, name: a.name, type: a.sport_type, date: (a.start_local || "").slice(0, 10),
       km: Math.round((a.distance || 0) / 100) / 10, bike: a.gear || "", ng: a.no_gps ? 1 : 0, g: a.g || [],
+      wx: a.wx && !a.wx.none ? a.wx : null,
     }));
     return json({ activities: acts });
   };
