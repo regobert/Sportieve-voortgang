@@ -308,10 +308,6 @@
     const recHtml = recs.map(([k, r, v, ic]) => `<button type="button" class="wx-rec" data-ride="${r.id}">
         <span class="wr-ic">${ic}</span><span class="wr-t"><span class="wr-k">${k}</span><span class="wr-v">${v(r.wx)}</span>
         <span class="wr-n">${esc(r.name || "Activiteit")} · ${fmtDate(r.date)} · ${nf.format(r.km)} km</span></span></button>`).join("");
-    // kilometers per temperatuur
-    const bands = [["onder 0°", -99, 0], ["0–5°", 0, 5], ["5–10°", 5, 10], ["10–15°", 10, 15], ["15–20°", 15, 20], ["20–25°", 20, 25], ["25° en warmer", 25, 99]];
-    const kmB = bands.map(([, lo, hi]) => withWx.filter((r) => r.wx.t >= lo && r.wx.t < hi).reduce((s, r) => s + r.km, 0));
-    const maxB = Math.max(...kmB, 1);
     const totKm = withWx.reduce((s, r) => s + r.km, 0);
     const wetKm = withWx.filter((r) => r.wx.p >= 0.5).reduce((s, r) => s + r.km, 0);
     const avgT = withWx.reduce((s, r) => s + r.wx.t * r.km, 0) / Math.max(totKm, 1);
@@ -322,11 +318,51 @@
         <div class="wx-recs">${recHtml}</div>
         <div class="wx-dist">
           <p class="wx-sum"><b>${nf1.format(avgT)} °C</b> gemiddeld · <b>${Math.round((wetKm / Math.max(totKm, 1)) * 100)}%</b> van je kilometers nat · <b>${nf.format(Math.round(headKm))} km</b> tegenwind tegen <b>${nf.format(Math.round(tailKm))} km</b> meewind</p>
-          <p class="wx-al-h">Kilometers per temperatuur</p>
-          <div class="wx-bands">${bands.map(([l], i) => `<div class="wb"><span class="wb-l">${l}</span><span class="wb-b"><span style="width:${((kmB[i] / maxB) * 100).toFixed(1)}%"></span></span><span class="wb-v">${nf.format(Math.round(kmB[i]))} km</span></div>`).join("")}</div>
+          <p class="wx-al-h">Kilometers per temperatuur, per seizoen</p>
+          ${tempCurve(withWx)}
           <p class="hint">Weer bekend bij ${nf.format(withWx.length)} van ${nf.format(pool.length)} ${what}${all ? "" : ` in ${M.y}`}. Weer: Open-Meteo, rond het startpunt.</p>
         </div>
       </div>`;
+  }
+
+  // Vloeiende verdeling van je kilometers over de temperatuur (kerndichtheid, 1,5° breed),
+  // als vlak voor het totaal en een lijn per seizoen. Klik een seizoen om het uit te lichten.
+  const SEASONS = [
+    ["winter", "Winter", [12, 1, 2]], ["lente", "Lente", [3, 4, 5]],
+    ["zomer", "Zomer", [6, 7, 8]], ["herfst", "Herfst", [9, 10, 11]],
+  ];
+  function tempCurve(rides) {
+    const ts = rides.map((r) => r.wx.t);
+    const lo = Math.max(-15, Math.floor(Math.min(...ts)) - 3), hi = Math.min(40, Math.ceil(Math.max(...ts)) + 3);
+    const BW = 1.5, NORM = 1 / (BW * Math.sqrt(2 * Math.PI)), STEP = 0.25;
+    const xs = [];
+    for (let x = lo; x <= hi + 1e-9; x += STEP) xs.push(x);
+    const dens = (list) => xs.map((x) => list.reduce((s, r) => s + r.km * NORM * Math.exp(-0.5 * ((x - r.wx.t) / BW) ** 2), 0));
+    const month = (r) => Number(r.date.slice(5, 7));
+    const per = SEASONS.map(([k, l, ms]) => {
+      const list = rides.filter((r) => ms.includes(month(r)));
+      const km = list.reduce((s, r) => s + r.km, 0);
+      return { k, l, km, avg: km ? list.reduce((s, r) => s + r.km * r.wx.t, 0) / km : null, d: list.length ? dens(list) : null };
+    });
+    const tot = dens(rides);
+    const yMax = Math.max(...tot, 1) * 1.08;
+    const CW = 560, H = 210, L = 8, Rr = 8, T = 10, B = 26;
+    const X = (x) => L + ((x - lo) / (hi - lo)) * (CW - L - Rr);
+    const Y = (v) => T + (1 - v / yMax) * (H - T - B);
+    const line = (d) => d.map((v, i) => `${i ? "L" : "M"}${X(xs[i]).toFixed(1)} ${Y(v).toFixed(1)}`).join("");
+    const sel = K.wxSeason || "";
+    const ticks = [];
+    for (let t = Math.ceil(lo / 5) * 5; t <= hi; t += 5) ticks.push(`<line class="g" x1="${X(t).toFixed(1)}" x2="${X(t).toFixed(1)}" y1="${T}" y2="${H - B}"/><text class="tx" x="${X(t).toFixed(1)}" y="${H - 8}" text-anchor="middle">${t}°</text>`);
+    const zero = lo < 0 && hi > 0 ? `<line class="z" x1="${X(0).toFixed(1)}" x2="${X(0).toFixed(1)}" y1="${T}" y2="${H - B}"/>` : "";
+    const seasonPaths = per.filter((p) => p.d).map((p) => `<path class="sl s-${p.k}${sel && sel !== p.k ? " dim" : ""}${sel === p.k ? " on" : ""}" d="${line(p.d)}"/>`).join("");
+    const area = `${line(tot)}L${X(hi).toFixed(1)} ${Y(0)}L${X(lo).toFixed(1)} ${Y(0)}Z`;
+    const legend = per.map((p) => `<button type="button" class="wx-sea s-${p.k}" data-season="${p.k}" aria-pressed="${sel === p.k}"${p.km ? "" : " disabled"}>
+        <i></i><span class="ws-l">${p.l}</span><span class="ws-v">${nf.format(Math.round(p.km))} km${p.avg != null ? ` · gem. ${nf1.format(p.avg)}°` : ""}</span></button>`).join("");
+    return `<svg class="wx-curve" viewBox="0 0 ${CW} ${H}" role="img" aria-label="Kilometers per temperatuur">
+        ${ticks.join("")}${zero}<line class="g" x1="${L}" x2="${CW - Rr}" y1="${Y(0)}" y2="${Y(0)}"/>
+        <path class="ta${sel ? " dim" : ""}" d="${area}"/><path class="tl${sel ? " dim" : ""}" d="${line(tot)}"/>${seasonPaths}
+      </svg>
+      <div class="wx-seas">${legend}</div>`;
   }
 
   function status(diff, label) {
@@ -1203,6 +1239,8 @@
   $("km-wx").addEventListener("click", (e) => {
     const t = e.target.closest("[data-wxall]");
     if (t) { K.wxAll = t.dataset.wxall === "1"; render(); return; }
+    const se = e.target.closest("[data-season]");
+    if (se) { K.wxSeason = K.wxSeason === se.dataset.season ? "" : se.dataset.season; render(); return; }
     const r = e.target.closest("[data-ride]");
     if (r && window.FG) window.FG.openRide(Number(r.dataset.ride));
   });

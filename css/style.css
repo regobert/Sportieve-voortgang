@@ -1113,3 +1113,23 @@ body.dragging .rc-drop { border-color: var(--blue); background: color-mix(in srg
   .wx-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) { .wx-recs { grid-template-columns: 1fr; } }
+/* weer: vloeiende temperatuurcurve per seizoen */
+.wx-curve { width: 100%; height: auto; display: block; margin-bottom: 10px; }
+.wx-curve .g { stroke: var(--line); stroke-width: 1; }
+.wx-curve .z { stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 3 3; }
+.wx-curve .tx { fill: var(--muted); font-size: 11px; }
+.wx-curve .ta { fill: var(--accent-soft); opacity: .8; transition: opacity .15s; }
+.wx-curve .tl { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; transition: opacity .15s; }
+.wx-curve .dim { opacity: .25; }
+.wx-curve .sl { fill: none; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; transition: opacity .15s, stroke-width .15s; }
+.wx-curve .sl.on { stroke-width: 3; }
+.s-winter { --sea: #3b82c4; } .s-lente { --sea: #3fa66b; } .s-zomer { --sea: #e0a116; } .s-herfst { --sea: #a8643a; }
+.wx-curve .sl { stroke: var(--sea); }
+.wx-seas { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.wx-sea { display: grid; grid-template-columns: 12px auto 1fr; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 6px 10px; font: inherit; font-size: 13px; color: inherit; cursor: pointer; text-align: left; }
+.wx-sea i { width: 12px; height: 3px; border-radius: 2px; background: var(--sea); }
+.wx-sea .ws-l { font-weight: 700; }
+.wx-sea .ws-v { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.wx-sea:hover:not([disabled]) { border-color: var(--line-2); }
+.wx-sea[aria-pressed="true"] { border-color: var(--sea); box-shadow: 0 0 0 1px var(--sea) inset; }
+.wx-sea[disabled] { opacity: .5; cursor: default; }
