@@ -1133,3 +1133,22 @@ body.dragging .rc-drop { border-color: var(--blue); background: color-mix(in srg
 .wx-sea:hover:not([disabled]) { border-color: var(--line-2); }
 .wx-sea[aria-pressed="true"] { border-color: var(--sea); box-shadow: 0 0 0 1px var(--sea) inset; }
 .wx-sea[disabled] { opacity: .5; cursor: default; }
+
+/* ============================================================ zijpaneel kaart in-/uitklappen */
+.views > .app { transition: grid-template-columns .22s ease; }
+.views > .app.side-closed { grid-template-columns: minmax(0, 1fr) 0; }
+.app.side-closed > .side { visibility: hidden; padding: 0; border: 0; overflow: hidden; }
+.side-toggle { position: absolute; top: 12px; right: 12px; z-index: 650; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.10); }
+.side-toggle:hover { background: var(--surface-2); }
+.side-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.side-toggle .chev { transition: transform .2s; transform-origin: 9.25px 12px; }
+.app:not(.side-closed) .side-toggle .chev { transform: rotate(0deg); }
+.app.side-closed .side-toggle .chev { transform: rotate(180deg); }
+.app:not(.side-closed) .side-toggle .st-l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.app:not(.side-closed) .side-toggle { padding: 0 9px; }
+@media (max-width: 820px) {
+  .side-toggle { display: none; }
+  .views > .app.side-closed { grid-template-columns: 1fr; }
+  .app.side-closed > .side { visibility: visible; padding: 20px 20px 12px; overflow-y: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .views > .app { transition: none; } }

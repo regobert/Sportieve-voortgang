@@ -1375,6 +1375,7 @@
     if (v === "prov" && window.FGProv) window.FGProv.show();
     if (v === "map") setTimeout(() => map.invalidateSize(), 50);
     if (view === "rides") {
+      setSideOpen(true, false);
       document.querySelectorAll(".tab").forEach((o) => o.classList.toggle("active", o.dataset.tab === "rides"));
       document.querySelectorAll(".tabpane").forEach((p) => { p.hidden = p.id !== "tab-rides"; });
       setTimeout(() => scrollSide(document.querySelector(".lists")), 60);
@@ -1408,8 +1409,31 @@
     side.scrollTo({ top: Math.max(0, top) });
   }
 
+  // Zijpaneel van kaart en activiteiten in- en uitklappen (onthouden)
+  function setSideOpen(open, save = true) {
+    const app = $("view-map");
+    if (app.classList.contains("side-closed") === !open) return;
+    app.classList.toggle("side-closed", !open);
+    const b = $("side-toggle");
+    b.setAttribute("aria-expanded", String(open));
+    b.title = open ? "Paneel inklappen ( ] )" : "Paneel tonen ( ] )";
+    b.querySelector(".st-l").textContent = open ? "Paneel" : "Paneel tonen";
+    if (save) { try { localStorage.setItem("fg-side", open ? "1" : "0"); } catch { /* geen opslag */ } }
+    // midden van de kaart vasthouden terwijl de kaart breder of smaller wordt
+    const c = map.getCenter(), z = map.getZoom();
+    setTimeout(() => { map.invalidateSize(false); map.setView(c, z, { animate: false }); }, 260);
+  }
+  try { if (localStorage.getItem("fg-side") === "0") setSideOpen(false, false); } catch { /* geen opslag */ }
+  $("side-toggle").addEventListener("click", () => setSideOpen($("view-map").classList.contains("side-closed")));
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "]" || e.ctrlKey || e.metaKey || e.altKey || $("view-map").hidden) return;
+    if (e.target.closest("input, textarea, select, [contenteditable]")) return;
+    setSideOpen($("view-map").classList.contains("side-closed"));
+  });
+
   /** Kaart tonen en daarna iets doen (de kaart moet eerst zijn juiste maat hebben) */
   function onMap(fn, view = "map") {
+    setSideOpen(true, false);
     setView(view);
     setTimeout(() => { map.invalidateSize(); fn(); }, 80);
   }
